@@ -51,8 +51,8 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
               .db.table.schema.str(table), " order by ordinal_position", sep = ""), conn.id)
 
     res@.col.name <- col.info$column_name
-    res@.col.data_type <- col.info$data_type
-    res@.col.udt_name <- col.info$udt_name
+    res@.col.data_type <- tolower(col.info$data_type)
+    res@.col.udt_name <- tolower(col.info$udt_name)
 
     if (is(res, "db.table")) {
         ## compute dim
@@ -69,7 +69,7 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
 
     res@.is.factor <- rep(FALSE, length(res@.col.name))
     res@.appear.name <- res@.col.name
-    res@.factor.suffix <- character(0)
+    res@.factor.suffix <- rep("", length(res@.col.name))
 
     if (verbose)
         message("An R object pointing to ", x,

@@ -1,6 +1,8 @@
 \name{dim-methods}
 
-\alias{dim,db.obj-method}
+\alias{dim,db.table-method}
+\alias{dim,db.view-method}
+\alias{dim,db.Rquery-method}
 
 \title{Dimension of a table}
 
@@ -10,7 +12,11 @@
 }
 
 \usage{
-\S4method{dim}{db.obj}(x)
+\S4method{dim}{db.table}(x)
+
+\S4method{dim}{db.view}(x)
+
+\S4method{dim}{db.Rquery}(x)
 }
 
 \arguments{
@@ -41,7 +47,7 @@
 }
 
 \examples{
-    \dontrun{
+\dontrun{
 ## Suppose that a valid connection with ID 1 exists
 
 ## create a table from the example data.frame "abalone"
@@ -51,7 +57,9 @@ preview(x, nrows = 10) # extract 10 rows of data
 
 ## get names of all columns
 dim(x)
-    }
+
+dim(x[,1:3])
+}
 }
 
 \keyword{methods}

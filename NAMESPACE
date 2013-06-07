@@ -10,7 +10,7 @@ export ("db.data.frame", "as.db.data.frame")
 exportClasses ("db.obj", "db.Rquery", "db.data.frame",
                "db.table", "db.view")
 
-exportMethods ("dim", "names")
+exportMethods ("dim", "names", "names<-")
 
 export ("content", "conn.id", "conn.id<-", "conn")
 
@@ -37,7 +37,9 @@ exportMethods("as.factor")
 
 export("preview", "delete", "key", "key<-")
 
-exportMethods("sort", "merge", "by")
+exportMethods("is.factor")
+
+exportMethods("sort", "merge", "by", "summary")
 
 exportMethods("==", "!=", "+", "-", "*", "/", "^", "%%", "%/%",
               ">", "<", ">=", "<=", "&", "|", "!")
@@ -50,5 +52,6 @@ export("madlib.summary", "print.summary.madlib", "show.summary.madlib")
 
 export("db.objects", "db.existsObject")
 
-exportMethods("mean", "sum", "length", "max", "min", "sd", "var")
+exportMethods("mean", "sum", "length", "max", "min")
+export("sd", "var")
 exportMethods("colMeans", "colSums", "c")

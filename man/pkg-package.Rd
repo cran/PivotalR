@@ -12,15 +12,18 @@ Database as well as Pivotal HD/HAWQ for Big Data analytics. It does so
 by providing an interface to the operations on tables/views in the
 database. These operations are almost the same as those of
 data.frame. Thus the users of R do not need to learn SQL when they
-operate on the objects in the database.
+operate on the objects in the database. The latest code is available at
+\url{https://github.com/madlib-internal/PivotalR}. A training video and
+a quick-start guide are
+available at \url{http://zimmeee.github.io/gp-r/#pivotalr}.
 }
 
 \details{
 \tabular{ll}{
 Package: \tab PivotalR\cr
 Type: \tab Package\cr
-Version: \tab 0.1.0\cr
-Date: \tab 2013-06-03\cr
+Version: \tab 0.1.1\cr
+Date: \tab 2013-06-07\cr
 License: \tab GPL (>= 2)\cr
 Depends: \tab methods, DBI, RPostgreSQL\cr
 }
@@ -130,6 +133,12 @@ db.connect(dbname = "test", user = "qianh1", password = "", host =
 
 db.list() # list the info for all the connections
 
+## list all tables/views that has "ornst" in the name
+db.objects("ornst")
+
+## list all tables/views
+db.objects(conn.id = 1)
+
 ## create a table and the R object pointing to the table
 ## using the example data that comes with this package
 delete("abalone")
@@ -152,6 +161,8 @@ fit1 <- madlib.lm(rings ~ . - id | sex, data = x)
 
 fit1 # view the result
 
+preview(mean((x$rings - predict(fit1, x))^2)) # mean square error
+
 ## fit a single model to all data treating sex as a categorial variable
 y <- x # make a copy, y is now a db.data.frame object
 y$sex <- as.factor(y$sex) # y becomes a db.Rquery object now
@@ -159,19 +170,27 @@ fit2 <- madlib.lm(rings ~ . - id, data = y)
 
 fit2 # view the result
 
+preview(mean((y$rings - predict(fit2, y))^2)) # mean square error
+
 ## logistic regression Examples --------
 
 ## fit one different model to each group of data with the same sex
-fit3 <- madlib.glm(rings ~ . - id | sex, data = x, family = "binomial")
+fit3 <- madlib.glm(rings < 10 ~ . - id | sex, data = x, family = "binomial")
 
 fit3 # view the result
+
+## the percentage of correct prediction
+preview(mean((x$rings < 10) == predict(fit3, x)))
 
 ## fit a single model to all data treating sex as a categorial variable
 y <- x # make a copy, y is now a db.data.frame object
 y$sex <- as.factor(y$sex) # y becomes a db.Rquery object now
-fit4 <- madlib.glm(rings ~ . - id, data = y, family = "binomial")
+fit4 <- madlib.glm(rings < 10 ~ . - id, data = y, family = "binomial")
 
 fit4 # view the result
+
+## the percentage of correct prediction
+preview(mean((y$rings < 10) == predict(fit4, y)))
 
 ## Group by Examples --------
 
@@ -197,6 +216,39 @@ y <- x$length + x$height + 2.3
 z <- x$length * x$height / 3
 
 preview(y < z, 20)
+
+## ------------------------------------------------------------------------
+## Deal with NULL values
+
+x <- db.data.frame("null_lower")
+
+dim(x)
+
+names(x)
+
+## ERROR, because of NULL values
+fit <- madlib.lm(sf_mrtg_pct_assets ~ ris_asset + lncrcd + lnauto + 
+                 lnconoth + lnconrp + intmsrfv + lnrenr1a + lnrenr2a + 
+                 lnrenr3a, data = x)
+
+## select columns
+y <- x[,c("sf_mrtg_pct_assets","ris_asset", "lncrcd","lnauto",
+          "lnconoth","lnconrp","intmsrfv","lnrenr1a","lnrenr2a",
+          "lnrenr3a")]
+
+dim(y)
+
+## remove NULL values
+for (i in 1:10) y <- y[!is.na(y[i]),]
+
+dim(y)
+
+fit <- madlib.lm(sf_mrtg_pct_assets ~ ., data = y)
+
+fit
+
+## Or we can replace all NULL values
+x[is.na(x)] <- 45
 }
 }
 
