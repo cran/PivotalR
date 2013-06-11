@@ -9,40 +9,27 @@
 madlib.lm <- function (formula, data, na.action, 
                        hetero = FALSE, ...) # param name too long
 {
-    ## Only newer versions of MADlib are supported
-    idx <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id(data), 2]
-    if (identical(.localVars$db[[idx]]$madlib.v, numeric(0)) ||
-        .madlib.version.number(conn.id(data)) < 0.6)
-        stop("MADlib error: Please use Madlib version newer than 0.5!")
-    
     ## make sure fitting to db.obj
     if (! is(data, "db.obj"))
         stop("madlib.lm cannot be used on the object ",
              deparse(substitute(data)))
+    
+    ## Only newer versions of MADlib are supported
+    .check.madlib.version(data)
 
-    msg.level <- .set.msg.level("panic", conn.id(data)) # suppress all messages
+    ## suppress all messages
+    msg.level <- .set.msg.level("panic", conn.id(data)) 
     ## disable warning in R, RPostgreSQL
     ## prints some unnessary warning messages
     warn.r <- getOption("warn")
     options(warn = -1)
 
-    params <- .analyze.formula(formula, data)
-
-    ## create temp table for db.Rquery objects
-    is.tbl.source.temp <- FALSE
-    if (is(params$data, "db.Rquery")) {
-        tbl.source <- .unique.string()
-        is.tbl.source.temp <- TRUE
-        data <- as.db.data.frame(x = params$data,
-                                 table.name = tbl.source,
-                                 is.temp = FALSE, verbose = FALSE)
-    }
-
-    is.factor <- data@.is.factor
-    cols <- names(data)
-    params <- .analyze.formula(formula, data, params$data, refresh = TRUE,
-                               is.factor = is.factor, cols = cols,
-                               suffix = data@.factor.suffix)
+    ## analyze the formula
+    analyzer <- .get.params(formula, data)
+    data <- analyzer$data
+    params <- analyzer$params
+    is.tbl.source.temp <- analyzer$is.tbl.source.temp
+    tbl.source <- analyzer$tbl.source
 
     ## dependent, independent and grouping strings
     if (is.null(params$grp.str))
@@ -59,25 +46,17 @@ madlib.lm <- function (formula, data, na.action,
                  tbl.source, "', '", tbl.output, "', '",
                  params$dep.str, "', '", params$ind.str, "', ",
                  grp, ", ", hetero, ")", sep = "")
-    
-    ## execute the linear regression
-    res <- try(.db.getQuery(sql, conn.id), silent = TRUE)
-    if (is(res, .err.class))
-        stop("Could not run MADlib linear regression !")
 
-    ## retreive result
-    res <- try(.db.getQuery(paste("select * from", tbl.output), conn.id),
-               silent = TRUE)
-    if (is(res, .err.class))
-        stop("Could not retreive MADlib linear regression result !")
+    ## execute and get the result
+    res <- .get.res(sql, tbl.output, conn.id)
 
     ## drop temporary tables
     .db.removeTable(tbl.output, conn.id)
     if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
-    
+
     msg.level <- .set.msg.level(msg.level, conn.id) # reset message level
     options(warn = warn.r) # reset R warning level
-    
+
     ## organize the result
     n <- length(params$ind.vars)
     rst <- list()
@@ -93,12 +72,14 @@ madlib.lm <- function (formula, data, na.action,
     rst$grps <- dim(rst$coef)[1] # how many groups
     rst$grp.cols <- gsub("\"", "", arraydb.to.arrayr(params$grp.str,
                                                      "character", n))
+
     rst$has.intercept <- params$has.intercept # do we have an intercept
     rst$ind.vars <- gsub("\"", "", params$ind.vars)
     rst$ind.str <- params$ind.str
     rst$col.name <- gsub("\"", "", data@.col.name)
     rst$appear <- data@.appear.name
     rst$call <- deparse(match.call()) # the current function call itself
+
     rst$dummy <- data@.dummy
     rst$dummy.expr <- data@.dummy.expr
     
@@ -142,7 +123,7 @@ print.lm.madlib <- function (x,
             cat("Group", i, "when\n")
             for (col in x$grp.cols)
                 cat(col, ": ", x[[col]][i], "\n", sep = "")
-            cat("We have\n")
+            cat("\n")
         }
 
         cat("Coefficients:\n")

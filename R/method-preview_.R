@@ -10,12 +10,30 @@ setGeneric (
 
 ## ------------------------------------------------------------------------
 
+.limit.str <- function (nrows)
+{
+    if (is.null(nrows) || (is.character(nrows) && nrows == "all"))
+        limit.str <- ""
+    else if (is.numeric(nrows))
+        limit.str <- paste(" limit ", nrows, sep = "")
+    else
+        stop("nrows must be NULL, \"all\" or an integer!")
+    limit.str
+}
+    
+## ------------------------------------------------------------------------
+
 setMethod (
     "preview",
     signature (x = "db.table"),
     def = function (x, nrows = 100) {
-        .db.getQuery(paste("select * from", content(x), "limit", nrows),
-                     conn.id(x))
+        warn.r <- getOption("warn")
+        options(warn = -1)
+        res <- .db.getQuery(paste("select * from ", content(x),
+                                  .limit.str(nrows), sep = ""),
+                            conn.id(x))
+        options(warn = warn.r) # reset R warning level
+        res
     })
 
 ## ------------------------------------------------------------------------
@@ -24,6 +42,8 @@ setMethod (
     "preview",
     signature (x = "db.view"),
     def = function (x, nrows = 100, interactive = FALSE) {
+        warn.r <- getOption("warn")
+        options(warn = -1)
         if (interactive) {
             cat(deparse(substitute(x)),
                 "points to a view in the database",
@@ -34,8 +54,11 @@ setMethod (
             if (go == "no" || go == "n") return
         }
 
-        .db.getQuery(paste("select * from", content(x), "limit", nrows),
-                     conn.id(x))
+        res <- .db.getQuery(paste("select * from ", content(x),
+                                  .limit.str(nrows), sep = ""),
+                            conn.id(x))
+        options(warn = warn.r) # reset R warning level
+        res
     })
 
 ## ------------------------------------------------------------------------
@@ -58,7 +81,7 @@ setMethod (
             if (go == "no" || go == "n") return
         }
 
-        res <- .db.getQuery(paste(content(x), "limit", nrows),
+        res <- .db.getQuery(paste(content(x), .limit.str(nrows), sep = ""),
                             conn.id(x))
 
         msg.level <- .set.msg.level(msg.level, conn.id(x)) # reset message level
@@ -66,3 +89,13 @@ setMethod (
            
         return (res)
     })
+
+## ------------------------------------------------------------------------
+
+## same as preview
+lookat <- function (x, nrows = 100)
+{
+    
+    if (is(x, "db.table")) return (preview(x, nrows))
+    preview(x, nrows, FALSE)
+}
