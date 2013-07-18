@@ -14,7 +14,8 @@
   applied onto each group, which has fixed values of the grouping
   columns. Categorial variables are supported, see details below. The
   computation is parallelized by MADlib if the connected database is
-  Greenplum database.
+  Greenplum database. The regression computation can also be done on a
+  column that is an array in the data table.
 }
 
 \usage{
@@ -74,7 +75,11 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
 }
 
 \value{
-  A list which contains the following items:
+  If there is no grouping (i.e. no \code{|} in the formula), the result
+  is a \code{lm.madlib} object. Otherwise, it is a \code{lm.madlib.grps}
+  object, which is just a list of \code{lm.madlib} objects.
+  
+  A \code{lm.madlib} object is a list which contains the following items:
 
   \item{grouping column(s)}{
     When there are grouping columns in the formula, the resulting list
@@ -218,6 +223,14 @@ fit # display the result
 x <- as.db.data.frame(abalone, "abalone")
 
 fit <- madlib.lm(rings ~ . - id | sex + length + height, data = x)
+
+## 3rd example
+## The table has two columns: x is an array, y is double precision
+array.data <- db.data.frame("tbl_has_array_column")
+
+## Fit to y using every element of x
+## This does not work in R's lm, but works in madlib.lm
+fit <- madlib.lm(y ~ x, data = array.data)
 }
 }
 

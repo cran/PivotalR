@@ -15,12 +15,7 @@
 db.connect <- function (host = "localhost", user = Sys.getenv("USER"), dbname = user,
                         password = "", port = 5432,
                         madlib = "madlib", conn.pkg = "RPostgreSQL")
-{
-    ## available packages, to check whether RODBC and RPostgreSQL are
-    ## already installed
-    .localVars$installed.pkgs <- tolower(attr(installed.packages(),
-                                              "dimnames")[[1]])
-    
+{    
     ## argument type check
     if (!.is.arg.string(host) ||
         !.is.arg.string(user) ||
@@ -36,13 +31,15 @@ db.connect <- function (host = "localhost", user = Sys.getenv("USER"), dbname = 
         i <- which(tolower(.supported.connections) == conn.pkg.name)
         pkg.to.load <- .supported.connections[i]
         ## if the package is not installed, install it
-        if (!(conn.pkg.name %in% .localVars$installed.pkgs)) 
+        if (!(conn.pkg.name %in% .get.installed.pkgs())) 
         {
             message(paste("Package ", pkg.to.load,
                         " is going to be installed so that ",
                         .this.pkg.name,
                         " could connect to databases.\n\n", sep = ""))
             install.packages(pkgs = pkg.to.load)
+            if (!(conn.pkg.name %in% .get.installed.pkgs()))
+                stop("The package could not be installed!")
         }
 
         eval(parse(text = paste("library(", pkg.to.load, ")", sep = "")))
@@ -104,6 +101,24 @@ db.disconnect <- function (conn.id = 1, verbose = TRUE)
 
 ## ------------------------------------------------------------------------
 
+.get.dbms.str <- function (conn.id)
+{
+    dbms.str <- dbms(conn.id = conn.id)
+    if (gsub(".*(Greenplum).*", "\\1", dbms.str, perl=T) == "Greenplum")
+    {
+        db.str <- "Greenplum"
+        version.str <- gsub(".*Greenplum[^\\d]+([\\d\\.]+).*",
+                            "\\1", dbms.str, perl=T)
+    } else {
+        db.str <- "PostgreSQL"
+        version.str <- gsub(".*PostgreSQL[^\\d]+([\\d\\.]+).*",
+                            "\\1", dbms.str, perl=T)
+    }
+    list(db.str = db.str, version.str = version.str)
+}
+
+## ------------------------------------------------------------------------
+
 ## List all connection info
 db.list <- function ()
 {
@@ -128,17 +143,8 @@ db.list <- function ()
             cat(paste("Database :    ", .localVars$db[[idx[2]]]$dbname,
                       "\n", sep = ""))
 
-            dbms.str <- dbms(conn.id = idx[1])
-            if (gsub(".*(Greenplum).*", "\\1", dbms.str, perl=T) == "Greenplum") {
-                db.str <- "Greenplum"
-                version.str <- gsub(".*Greenplum[^\\d]+([\\d\\.]+).*",
-                                    "\\1", dbms.str, perl=T)
-            } else {
-                db.str <- "PostgreSQL"
-                version.str <- gsub(".*PostgreSQL[^\\d]+([\\d\\.]+).*",
-                                    "\\1", dbms.str, perl=T)
-            }
-            cat("DBMS     :   ", db.str, version.str, "\n")
+            db <- .get.dbms.str(idx[1])
+            cat("DBMS     :   ", db$db.str, db$version.str, "\n")
 
             if (identical(.localVars$db[[idx[2]]]$madlib.v, numeric(0)))
                 cat("MADlib   :    not installed in schema", schema.madlib(idx[1]), "\n")
@@ -159,8 +165,13 @@ db.list <- function ()
 ## list tables and views in the connection
 db.objects <- function (search = NULL, conn.id = 1)
 {
-    res <- .db.getQuery("select table_schema, table_name from information_schema.tables")
-    if (is.null(search)) return (res)
+    res <- .db.getQuery("select table_schema, table_name from information_schema.tables", conn.id = conn.id)
+
+    if (is.null(search)) {
+        res <- paste(res[,1], res[,2], sep = ".")
+        return (res[order(res)])
+    }
+    
     search <- gsub("\\.", "\\\\.", search)
     final.res <- character(0)
     for (i in seq_len(dim(res)[1])) {
@@ -169,7 +180,11 @@ db.objects <- function (search = NULL, conn.id = 1)
         if (find != name)
             final.res <- rbind(final.res, res[i,])
     }
-    final.res
+    if (!identical(final.res, character(0))) {
+        res <- paste(final.res[,1], final.res[,2], sep = ".")
+        return (res[order(res)])
+    } else
+        NULL
 }
 
 ## ------------------------------------------------------------------------
@@ -177,14 +192,16 @@ db.objects <- function (search = NULL, conn.id = 1)
 ## does an object exist?
 db.existsObject <- function (name, conn.id = 1, is.temp = FALSE)
 {
-    name <- strsplit(name, "\\.")[[1]]
+    if (length(name) == 1) name <- strsplit(name, "\\.")[[1]]
     if (length(name) != 1 && length(name) != 2)
         stop("The formation of object name is wrong!")
     if (length(name) == 2) {
         schema <- name[1]
         table <- name[2]
         ct <- .db.getQuery(paste("select count(*) from information_schema.tables where table_name = '",
-                                 table, "' and table_schema = '", schema, "'", sep = ""), conn.id)
+                                 .strip(table, "\""),
+                                 "' and table_schema = '",
+                                 .strip(schema, "\""), "'", sep = ""), conn.id)
         if (ct == 0)
             FALSE
         else

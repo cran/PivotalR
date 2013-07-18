@@ -4,6 +4,7 @@
 \alias{preview,db.view-method}
 \alias{preview,db.table-method}
 \alias{preview,db.Rquery-method}
+\alias{preview,db.Rcrossprod-method}
 
 \title{
   Read the actual data stored in a table of database.
@@ -16,22 +17,28 @@
 }
 
 \usage{
-\S4method{preview}{db.table}(x, nrows = 100)
+\S4method{preview}{db.table}(x, nrows = 100, array = TRUE)
 
-\S4method{preview}{db.view}(x, nrows = 100, interactive = FALSE)
+\S4method{preview}{db.view}(x, nrows = 100, interactive = FALSE,
+array = TRUE)
 
-\S4method{preview}{db.Rquery}(x, nrows = 100, interactive = FALSE)
+\S4method{preview}{db.Rquery}(x, nrows = 100, interactive = FALSE,
+array = TRUE)
 
-lookat(x, nrows = 100)
+\S4method{preview}{db.Rcrossprod}(x, interactive = FALSE)
+
+lookat(x, nrows = 100, array = TRUE)
 }
 
 \arguments{
   \item{x}{
     The signature of the method. 
-    A \code{db.data.frame} (includes \code{db.table} and \code{db.view})
+    A \code{\linkS4class{db.data.frame}} (includes
+  \code{\linkS4class{db.table}} and \code{\linkS4class{db.view}})
   object, which points to a table or view in
-    the database; or a \code{db.Rquery} object, which represents some
-  operations on a \code{db.data.frame} object.
+    the database; or a \code{\linkS4class{db.Rquery}} object, which
+  represents some 
+  operations on a \code{\linkS4class{db.data.frame}} object.
   }
   \item{nrows}{
     An integer, default is 100, how many rows of data. If it is
@@ -40,21 +47,34 @@ lookat(x, nrows = 100)
   very large.
   }
   \item{interactive}{
-    A boolean, default is FALSE. If \code{x} is a view, then extracting
-  data from it would actually compute the view, which might take a
-  longer time, especially for large data sets. When \code{interactive}
-  is TRUE, this function will ask the user whether to continue to
-  extract data from the view. 
+    A boolean, default is \code{FALSE}. If \code{x} is a view, then
+  extracting 
+    data from it would actually compute the view, which might take a
+    longer time, especially for large data sets. When \code{interactive}
+    is TRUE, this function will ask the user whether to continue to
+    extract data from the view. 
+  }
+  \item{array}{
+    A boolean, default is \code{TRUE}. This decides how to parse columns
+  that have array as their elements. When it is \code{TRUE}, each
+  element in the array is extracted and put into a new
+  column. Otherwise, the array is read in as a string.
   }
 }
 
 \details{
-  When the signature \code{x} is a \code{db.data.frame} object, this
+When the signature \code{x} is a \code{\linkS4class{db.data.frame}}
+object, this 
   function reads the data in a table or view in the connected database.
 
-  When the signature \code{x} is a \code{db.Rquery} object, this
-  function reads the result of some operations on a \code{db.data.frame}
+  When the signature \code{x} is a \code{\linkS4class{db.Rquery}}
+  object, this 
+  function reads the result of some operations on a
+  \code{\linkS4class{db.data.frame}} 
   object. 
+
+  When the signature \code{x} is a \code{\linkS4class{db.Rcrossprod}}
+  object, this function output a matrix to R.
 }
 
 \value{
