@@ -1,8 +1,8 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Wrapper function for MADlib's linear, logistic and multinomial
 ## logistic regressions
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## na.action is a place holder
 ## family specific parameters are in control, which
@@ -41,7 +41,7 @@ madlib.glm <- function (formula, data, family = "gaussian",
     return
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .madlib.logregr <- function (formula, data, na.action, method = "irls",
                              max_iter = 10000, tolerance = 1e-5)
@@ -54,12 +54,7 @@ madlib.glm <- function (formula, data, family = "gaussian",
     ## Only newer versions of MADlib are supported
     .check.madlib.version(data)
 
-    ## suppress all messages
-    msg.level <- .set.msg.level("panic", conn.id(data))
-    ## disable warning in R, RPostgreSQL
-    ## prints some unnessary warning messages
-    warn.r <- getOption("warn")
-    options(warn = -1)
+    warnings <- .suppress.warnings(conn.id(data))
 
     analyzer <- .get.params(formula, data)
     data <- analyzer$data
@@ -67,32 +62,45 @@ madlib.glm <- function (formula, data, family = "gaussian",
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
     tbl.source <- analyzer$tbl.source
 
+    db.str <- (.get.dbms.str(conn.id(data)))$db.str
+    
     ## dependent, independent and grouping strings
     if (is.null(params$grp.str))
         grp <- "NULL::text"
     else
-        grp <- paste("'", params$grp.str, "'")
+        if (db.str == "HAWQ")
+            stop("Right now MADlib on HAWQ does not support grouping ",
+                 "in logistic regression !")
+        else
+            grp <- paste("'", params$grp.str, "'")
 
     ## construct SQL string
     conn.id <- conn.id(data)
     tbl.source <- gsub("\"", "", content(data))
-    tbl.output <- .unique.string()
     madlib <- schema.madlib(conn.id) # MADlib schema name
-    sql <- paste("select ", madlib, ".logregr_train('",
-                 tbl.source, "', '", tbl.output, "', '",
-                 params$dep.str, "', '", params$ind.str, "', ",
-                 grp, ", ", max_iter, ", '", method, "', ",
-                 tolerance, ")", sep = "")
+    if (db.str == "HAWQ") {
+        tbl.output <- NULL
+        sql <- paste0("select (f).* from (select ", madlib,
+                      ".logregr('", tbl.source, "', '", params$dep.str,
+                      "', '", params$ind.str, "', ", max_iter,
+                      ", '", method, "', ", tolerance, ") as f) s")
+    } else {
+        tbl.output <- .unique.string()
+        sql <- paste0("select ", madlib, ".logregr_train('",
+                      tbl.source, "', '", tbl.output, "', '",
+                      params$dep.str, "', '", params$ind.str, "', ",
+                      grp, ", ", max_iter, ", '", method, "', ",
+                      tolerance, ")")
+    }
 
     ## execute the logistic regression and get the result
     res <- .get.res(sql, tbl.output, conn.id)
 
     ## drop temporary tables
-    .db.removeTable(tbl.output, conn.id)
+    if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
     if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
 
-    msg.level <- .set.msg.level(msg.level, conn.id) # reset message level
-    options(warn = warn.r) # reset R warning level
+    .restore.warnings(warnings)
 
     ## organize the result
     n <- length(params$ind.vars)
@@ -123,7 +131,7 @@ madlib.glm <- function (formula, data, family = "gaussian",
         rst[[i]]$std_err <- r.std_err[i,]
         rst[[i]]$z_stats <- r.z_stats[i,]
         rst[[i]]$p_values <- r.p_values[i,]
-        rst[[i]]$odds_ratios <- r.odds_ratios
+        rst[[i]]$odds_ratios <- r.odds_ratios[i,]
         rst[[i]]$grp.cols <- r.grp.cols
         rst[[i]]$has.intercept <- r.has.intercept
         rst[[i]]$ind.vars <- r.ind.vars
@@ -142,7 +150,7 @@ madlib.glm <- function (formula, data, family = "gaussian",
     else return (rst)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 summary.logregr.madlib <- function (object, ...)
 {
@@ -154,7 +162,7 @@ summary.logregr.madlib.grps <- function (object, ...)
     object
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Pretty format of linear regression result
 print.logregr.madlib.grps <- function (x,
@@ -233,14 +241,14 @@ print.logregr.madlib.grps <- function (x,
     cat("\n")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 show.logregr.madlib.grps <- function (object)
 {
     print(object)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Pretty format of linear regression result
 print.logregr.madlib <- function (x,
@@ -251,10 +259,10 @@ print.logregr.madlib <- function (x,
     if (x$has.intercept)
         rows <- c("(Intercept)", x$ind.vars)
     else
-        rows <- x[[1]]$ind.vars
-    for (i in seq_len(length(x[[1]]$col.name)))
-        if (x[[1]]$col.name[i] != x[[1]]$appear[i])
-            rows <- gsub(x[[1]]$col.name[i], x[[1]]$appear[i], rows)
+        rows <- x$ind.vars
+    for (i in seq_len(length(x$col.name)))
+        if (x$col.name[i] != x$appear[i])
+            rows <- gsub(x$col.name[i], x$appear[i], rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
@@ -312,7 +320,7 @@ print.logregr.madlib <- function (x,
     cat("\n")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 show.logregr.madlib <- function (object)
 {
@@ -320,7 +328,7 @@ show.logregr.madlib <- function (object)
 }
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .madlib.mlogregr <- function (formula, data, na.action, method = "irls",
                               max_iter = 10000, tolerance = 1e-5, call)

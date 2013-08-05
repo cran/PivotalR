@@ -1,10 +1,12 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Bagging method, not a wrapper of MADlib function
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 generic.bagging <- function (train, data, nbags = 10, fraction = 1)
 {
+    warnings <- .suppress.warnings(conn.id(data))
+    
     if (fraction > 1)
         stop("fraction cannot be larger than 1!")
     if (!is(data, "db.obj"))
@@ -14,15 +16,21 @@ generic.bagging <- function (train, data, nbags = 10, fraction = 1)
     size <- as.integer(n * fraction)
 
     res <- list()
+    idat <- .create.indexed.temp.table(data)
     for (i in 1:nbags) {
-        data.use <- sample(data, size, replace = TRUE)
+        data.use <- sample(idat, size, replace = TRUE, indexed = TRUE)
         res[[i]] <- train(data = data.use)
+        delete(data.use)
     }
+    delete(idat)
     class(res) <- "bagging.model"
+
+    .restore.warnings(warnings)
+   
     res
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 predict.bagging.model <- function (object, newdata, combine = "mean",
                                    ...)
@@ -110,7 +118,7 @@ predict.bagging.model <- function (object, newdata, combine = "mean",
         stop("combine method must be \"mean\" or \"vote\"!")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## load a SQL function from inst/sql/
 .load.func <- function (funcname, conn.id)
@@ -123,7 +131,7 @@ predict.bagging.model <- function (object, newdata, combine = "mean",
     }
     
     .localVars$pkg.path <- path.package(.this.pkg.name)
-    sql.file <- paste(.localVars$pkg.path, "/sql/", "funcname",
+    sql.file <- paste(.localVars$pkg.path, "/sql/", funcname,
                       ".sql_in", sep = "")
     use.name <- .unique.string()
     tmp.file <- paste("/tmp/", use.name, ".sql_in", sep = "")
@@ -131,15 +139,19 @@ predict.bagging.model <- function (object, newdata, combine = "mean",
     new.name <- paste("pg_temp.", use.name, sep = "")
     system(paste("sed -e \"s/", old.name, "/", new.name, "/g\" ", sql.file,
                  " > ", tmp.file, sep = ""))
-    cmd <- paste(scan(tmp.file, what = 'a', sep = "\n"), collapse = "\n")
+    cmd <- paste(scan(tmp.file, what = 'a', sep = "\n", quiet = TRUE), collapse = "\n")
     res <- .db.getQuery(cmd, conn.id)
     system(paste("rm -f ", tmp.file, sep = ""))
+
+    fn.schema <- .db.getQuery(paste0("SELECT specific_schema from information_schema.routines where routine_name = '",
+                                     use.name, "'"), conn.id)
+
     
     if (is.null(.localVars$db[[id]]$func))
-        .localVars$db[[id]]$func <- c(funcname, use.name)
+        .localVars$db[[id]]$func <- rbind(c(funcname, paste0(fn.schema[1,1], ".", use.name)))
     else
         .localVars$db[[id]]$func <- rbind(.localVars$db[[id]]$func,
-                                          c(funcname, use.name))
+                                          c(funcname, paste0(fn.schema[1,1], ".", use.name)))
 
-    paste("pg_temp.", use.name, sep = "")
+    paste0(fn.schema[1,1], ".", use.name)
 }

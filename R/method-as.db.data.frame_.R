@@ -1,11 +1,11 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Convert other R objects into db.data.frame
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric (
     "as.db.data.frame",
-    def = function (x, table.name, verbose = TRUE, ...) {
+    def = function (x, table.name = NULL, verbose = TRUE, ...) {
         x.str <- deparse(substitute(x))
         res <- standardGeneric("as.db.data.frame")
         if (verbose) {
@@ -35,23 +35,27 @@ setGeneric (
     },
     signature = "x")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## put a data.frame into a db.data.frame
 setMethod (
     "as.db.data.frame",
     signature (x = "data.frame"),
     def = function (
-    x, table.name, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
+    x, table.name = NULL, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
     key = character(0), distributed.by = NULL,
     is.temp = FALSE, ...) {
-         .method.as.db.data.frame.1(x, 
+        if (is.null(table.name)) {
+            table.name <- .unique.string()
+            is.temp <- TRUE
+        }
+        .method.as.db.data.frame.1(x, 
                                    table.name, verbose, conn.id,
                                    add.row.names, key,
                                    distributed.by, is.temp, ...)
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## put a file into a db.data.frame
 ## put a data.frame into a db.data.frame
@@ -59,9 +63,14 @@ setMethod (
     "as.db.data.frame",
     signature (x = "character"),
     def = function (
-    x, table.name, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
+    x, table.name = NULL, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
     key = character(0), distributed.by = NULL,
     is.temp = FALSE, ...) {
+        if (is.null(table.name)) {
+            table.name <- .unique.string()
+            is.temp <- TRUE
+        }
+        
         f <- paste0(getwd(), "/", x)
         if (file.exists(f)) x <- f
         else if (!file.exists(x))
@@ -72,13 +81,18 @@ setMethod (
                                    distributed.by, is.temp, ...)
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .method.as.db.data.frame.1 <- function (
-    x, table.name, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
+    x, table.name = NULL, verbose = TRUE, conn.id = 1, add.row.names = FALSE,
     key = character(0), distributed.by = NULL,
     is.temp = FALSE, ...)
 {
+    if (is.null(table.name)) {
+        table.name <- .unique.string()
+        is.temp <- TRUE
+    }
+    
     exists <- db.existsObject(table.name, conn.id, is.temp)
     if (is.temp) exists <- exists[[1]]
     if (exists) stop("The table already exists in connection ", conn.id, "!")
@@ -102,9 +116,7 @@ setMethod (
         (is.temp && .db.existsTempTable(table, conn.id)[[1]]))
         stop("Table already exists!")
 
-    msg.level <- .set.msg.level("panic", conn.id)
-    warn.r <- getOption("warn")
-    options(warn = -1)
+    warnings <- .suppress.warnings(conn.id)
     
     .db.writeTable(table, x, add.row.names = add.row.names,
                    distributed.by = distributed.by,
@@ -119,25 +131,29 @@ setMethod (
                            " add primary key (\"",
                            key, "\")", sep = ""), conn.id)
 
-    msg.level <- .set.msg.level(msg.level, conn.id) 
-    options(warn = warn.r) # reset R warning level
+    .restore.warnings(warnings)
     
     list(res = db.data.frame(x = table.name, conn.id = conn.id, key = key,
          verbose = verbose, is.temp = is.temp),
          conn.id = conn.id)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## convert a db.Rquery object into a db.data.frame object
 
 setMethod (
     "as.db.data.frame",
     signature (x = "db.Rquery"),
-    def = function (x, table.name, verbose = TRUE,
+    def = function (x, table.name = NULL, verbose = TRUE,
     is.view = FALSE,
     is.temp = FALSE,  pivot = TRUE,
     distributed.by = NULL, nrow = NULL) {
+        if (is.null(table.name)) {
+            table.name <- .unique.string()
+            is.temp <- TRUE
+        }
+        
         conn.id <- conn.id(x)
 
         dist.str <- .get.distributed.by.str(conn.id, distributed.by)
@@ -146,9 +162,7 @@ setMethod (
         if (is.temp) exists <- exists[[1]]
         if (exists) stop("The table already exists in connection ", conn.id, "!")
 
-        msg.level <- .set.msg.level("panic", conn.id(x))
-        warn.r <- getOption("warn")
-        options(warn = -1)
+        warnings <- .suppress.warnings(conn.id(x))
         
         if (is.temp) 
             temp.str <- "temp"
@@ -233,8 +247,7 @@ setMethod (
 
         .db.getQuery(create.str, conn.id) # create table
 
-        msg.level <- .set.msg.level(msg.level, conn.id(x)) 
-        options(warn = warn.r) # reset R warning level
+        .restore.warnings(warnings)
 
         res <- db.data.frame(x = table.name, conn.id = conn.id, key = x@.key,
                              verbose = verbose, is.temp = is.temp)
@@ -246,16 +259,21 @@ setMethod (
         list(res = res, conn.id = conn.id)
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Make a copy of a table/view
 
 setMethod (
     "as.db.data.frame",
     signature (x = "db.data.frame"),
-    def = function (x, table.name, verbose = TRUE,
+    def = function (x, table.name = NULL, verbose = TRUE,
     is.view = FALSE, is.temp = FALSE,
     distributed.by = NULL, nrow = NULL) {
+        if (is.null(table.name)) {
+            table.name <- .unique.string()
+            is.temp <- TRUE
+        }
+        
         if (table.name == content(x))
             stop("cannot copy an object into itself!")
         list(res = as.db.data.frame(x[,], table.name, FALSE,

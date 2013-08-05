@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Sample method with or without replace
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric("sample")
 
@@ -9,28 +9,27 @@ setGeneric("sample")
 setMethod (
     "sample",
     signature(x = "db.obj"),
-    function (x, size, replace = FALSE, prob = NULL, ...) {
+    function (x, size, replace = FALSE, prob = NULL, indexed.x = FALSE, ...) {
         n <- dim(x)[1]
         if (!replace && n < size)
             stop("size is larger than data size!")
 
-        msg.level <- .set.msg.level("panic", conn.id(x))
-        warn.r <- getOption("warn")
-        options(warn = -1)
-        
+        warnings <- .suppress.warnings(conn.id(x))
+
         if (!replace) {
             tmp <- .unique.string()
             res <- as.db.data.frame(sort(x, FALSE, "random"), tmp, FALSE,
                                     FALSE, TRUE, FALSE, NULL, size)
-            msg.level <- .set.msg.level(msg.level, conn.id(x)) 
-            options(warn = warn.r) # reset R warning level
+            .restore.warnings(warnings)
             res
         } else {
-            y <- .create.indexed.temp.table(x)
+            if (!indexed.x)
+                y <- .create.indexed.temp.table(x)
+            else
+                y <- x
             select <- sample(seq(n), size, replace = TRUE)
             freq <- table(select)
             fq <- cbind(as.integer(names(freq)), as.integer(freq))
-            
             res <- as.db.data.frame(y[fq[,1],-y@.dim[2]], .unique.string(),
                                     FALSE, FALSE, TRUE, FALSE, NULL, NULL)
             for (i in seq_len(max(fq[,2])-1)+1) {
@@ -39,17 +38,17 @@ setMethod (
                              ")", sep = "")
                 .db.getQuery(sql, conn.id(x))
             }
-            
-            delete(y)
-            msg.level <- .set.msg.level(msg.level, conn.id(x)) 
-            options(warn = warn.r) # reset R warning level
+
+            if (!indexed.x) delete(y)
+
+            .restore.warnings(warnings)
 
             res@.dim[1] <- size
             res
         }
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Create an intermediate temp table with index
 .create.indexed.temp.table <- function (x, random = FALSE)
@@ -62,7 +61,7 @@ setMethod (
     else
         y <- as.db.data.frame(x, tmp, FALSE, FALSE, TRUE, FALSE,
                               NULL, NULL)
-    tmp <- db.objects(tmp)
+    tmp <- db.objects(tmp, conn.id(x))
     id.col <- .unique.string()
     sql <- paste("alter table ", tmp, " add column ", id.col,
                  " bigserial", sep = "")

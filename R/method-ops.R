@@ -1,5 +1,5 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Some operations for Arith and Compare
 ## 6 Compare operation methods, 7 Arith operation methods
 ##
@@ -13,7 +13,7 @@
 ## functions? But of course, they are small functions, and can be
 ## done in an hour. However, this would bring lots of redundant
 ## things into the manual.
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("eql", signature = c("e1", "e2"),
             def = function (e1, e2) standardGeneric("eql"))
@@ -53,7 +53,7 @@ setMethod (
     },
     valueClass = "logical")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## operation between an db.obj and a single value
 .compare <- function (e1, e2, cmp, data.types,
@@ -128,7 +128,7 @@ setMethod (
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .num.types <- c("smallint", "integer", "int2", "int4", "int4",
                 "bigint", "decimal", "numeric", "double precision",
@@ -144,7 +144,7 @@ setMethod (
 .txt.types <- c("character varying", "varchar", "character",
                 "char", "text")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     ">",
@@ -264,12 +264,13 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     ">",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " > ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -290,6 +291,7 @@ setMethod (
     "<",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " < ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -310,6 +312,7 @@ setMethod (
     ">=",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " >= ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -330,6 +333,7 @@ setMethod (
     "<=",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " <= ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -350,6 +354,7 @@ setMethod (
     "==",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " = ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -370,6 +375,7 @@ setMethod (
     "!=",
     signature(e1 = "db.obj", e2 = "character"),
     function (e1, e2) {
+        e2 <- paste0("'", .strip(e2, "'"), "'")
         .compare(e1, e2, " <> ", .txt.types, cast = "")
     },
     valueClass = "db.Rquery")
@@ -384,7 +390,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "&",
@@ -423,7 +429,7 @@ setMethod (
     valueClass = "db.Rquery")
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "+",
@@ -571,7 +577,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Arith operators for db.Rquery and db.Rquery
 
@@ -690,7 +696,7 @@ setMethod (
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "+",
@@ -866,7 +872,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("is.na")
 

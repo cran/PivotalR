@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## several aggregate methods, can be used with by
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .apply.func.array <- function (x, func, vector, input.types, allow.bool,
                                data.type, udt.name, inside)
@@ -9,10 +9,10 @@
     x <- .expand.array(x)
     y <- .sub.aggregate(x, func, vector, input.types, allow.bool,
                         x@.col.data_type, x@.col.udt_name, inside)
-    return (rowAgg(y))
+    return (db.array(y))
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## support the operations on array columns
 .aggregate <- function (x, func, vector = TRUE, input.types = .num.types,
@@ -54,7 +54,7 @@
     res
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .sub.aggregate <- function (x, func, vector = TRUE, input.types = .num.types,
                             allow.bool = FALSE,
@@ -138,7 +138,7 @@
         .sort = list(by = "", order = "", str = ""))
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("mean")
 
@@ -146,12 +146,14 @@ setMethod (
     "mean",
     signature(x = "db.obj"),
     function (x, ...) {
-        .aggregate(x, "avg", FALSE, .num.types, TRUE,
-                   "double precision", "float8")
+        res <- .aggregate(x, "avg", FALSE, .num.types, TRUE,
+                          "double precision", "float8")
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("sum")
 
@@ -159,12 +161,14 @@ setMethod (
     "sum",
     signature(x = "db.obj"),
     function (x, ..., na.rm = FALSE) {
-        .aggregate(x, "sum", FALSE, .num.types, TRUE,
-                   x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "sum", FALSE, .num.types, TRUE,
+                          x@.col.data_type, x@.col.udt_name)
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("length")
 
@@ -172,11 +176,13 @@ setMethod (
     "length",
     signature(x = "db.obj"),
     function (x) {
-        .aggregate(x, "count", FALSE, NULL, FALSE, "integer", "int4")
+        res <- .aggregate(x, "count", FALSE, NULL, FALSE, "integer", "int4")
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("max")
 
@@ -184,12 +190,14 @@ setMethod (
     "max",
     signature(x = "db.obj"),
     function (x, ..., na.rm = FALSE) {
-        .aggregate(x, "max", FALSE, .num.types, FALSE,
-                   x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "max", FALSE, .num.types, FALSE,
+                          x@.col.data_type, x@.col.udt_name)
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("min")
 
@@ -197,12 +205,14 @@ setMethod (
     "min",
     signature(x = "db.obj"),
     function (x, ..., na.rm = FALSE) {
-        .aggregate(x, "min", FALSE, .num.types, FALSE,
-                   x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "min", FALSE, .num.types, FALSE,
+                          x@.col.data_type, x@.col.udt_name)
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("sd", signature = "x",
             def = function (x, na.rm = FALSE) {
@@ -217,12 +227,14 @@ setMethod (
     "sd",
     signature(x = "db.obj"),
     function (x) {
-        .aggregate(x, "stddev", FALSE, .num.types, TRUE,
-                   "double precision", "float8")
+        res <- .aggregate(x, "stddev", FALSE, .num.types, TRUE,
+                          "double precision", "float8")
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("var", signature = "x",
             def = function (x, y = NULL, na.rm = FALSE, use) {
@@ -237,12 +249,14 @@ setMethod (
     "var",
     signature(x = "db.obj"),
     function (x) {
-        .aggregate(x, "variance", FALSE, .num.types, TRUE,
-                   "double precision", "float8")
+        res <- .aggregate(x, "variance", FALSE, .num.types, TRUE,
+                          "double precision", "float8")
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("colMeans")
 
@@ -250,12 +264,14 @@ setMethod (
     "colMeans",
     signature(x = "db.obj"),
     function (x, na.rm = FALSE, dims = 1, ...) {
-        .aggregate(x, "avg", FALSE, .num.types, TRUE,
-                   "double precision", "float8")
+        res <- .aggregate(x, "avg", FALSE, .num.types, TRUE,
+                          "double precision", "float8")
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("colSums")
 
@@ -263,12 +279,14 @@ setMethod (
     "colSums",
     signature(x = "db.obj"),
     function (x, na.rm = FALSE, dims = 1, ...) {
-        .aggregate(x, "sum", FALSE, .num.types, TRUE,
-                   x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "sum", FALSE, .num.types, TRUE,
+                          x@.col.data_type, x@.col.udt_name)
+        res@.is.agg <- TRUE
+        res
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("log")
 
@@ -281,7 +299,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("log10")
 
@@ -294,7 +312,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("exp")
 
@@ -307,7 +325,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("abs")
 
@@ -320,7 +338,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("factorial")
 
@@ -333,7 +351,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("sqrt")
 
@@ -346,7 +364,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("sign")
 
@@ -359,21 +377,22 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## array_agg each column
 colAgg <- function (x)
 {
     if (!is(x, "db.obj"))
         stop("this function only works with db.obj!")
-    .aggregate(x, "array_agg", FALSE, NULL, FALSE, "array",
-               paste("_", x@.col.udt_name, sep = ""))
+    res <- .aggregate(x, "array_agg", FALSE, NULL, FALSE, "array",
+                      paste("_", x@.col.udt_name, sep = ""))
+    res@.is.agg <- TRUE
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## array_agg all the columns on the same row
-rowAgg <- function (x, ...)
+db.array <- function (x, ...)
 {
     n <- nargs()
     dat <- list()
@@ -480,7 +499,7 @@ rowAgg <- function (x, ...)
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .eql.parent <- function (x1, x2)
 {
@@ -498,7 +517,7 @@ rowAgg <- function (x, ...)
     }
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .check.consistent <- function (base, x, udt.name)
 {

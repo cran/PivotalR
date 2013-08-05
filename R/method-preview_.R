@@ -1,14 +1,14 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Preview the object
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric (
     "preview",
     def = function (x, ...) standardGeneric("preview"),
     signature = "x")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .limit.str <- function (nrows)
 {
@@ -21,7 +21,7 @@ setGeneric (
     limit.str
 }
     
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "preview",
@@ -42,7 +42,7 @@ setMethod (
         res
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "preview",
@@ -73,15 +73,13 @@ setMethod (
         res
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "preview",
     signature (x = "db.Rquery"),
     def = function (x, nrows = 100, interactive = FALSE, array = TRUE) {
-        msg.level <- .set.msg.level("panic", conn.id(x)) # suppress all messages
-        warn.r <- getOption("warn")
-        options(warn = -1)
+        warnings <- .suppress.warnings(conn.id(x))
 
         if (interactive) {
             cat(deparse(substitute(x)),
@@ -97,8 +95,7 @@ setMethod (
         res <- .db.getQuery(paste(content(x), .limit.str(nrows),
                                   sep = ""), conn.id(x))
 
-        msg.level <- .set.msg.level(msg.level, conn.id(x)) # reset message level
-        options(warn = warn.r) # reset R warning level
+        .restore.warnings(warnings)
 
         if (length(names(x)) == 1 && x@.col.data_type == "array") {
             if (gsub("int", "", x@.col.udt_name) != x@.col.udt_name)
@@ -116,15 +113,13 @@ setMethod (
         return (res)
     })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "preview",
     signature (x = "db.Rcrossprod"),
-    def = function (x, interactive = FALSE) {
-        msg.level <- .set.msg.level("panic", conn.id(x)) # suppress all messages
-        warn.r <- getOption("warn")
-        options(warn = -1)
+    def = function (x, nrows = 100, interactive = FALSE) {
+        warnings <- .suppress.warnings(conn.id(x))
 
         if (interactive) {
             cat(deparse(substitute(x)),
@@ -136,27 +131,61 @@ setMethod (
             if (go == "no" || go == "n") return
         }
 
-        res <- .db.getQuery(content(x), conn.id(x))
+        ## NOTE: Unfortunately, RPostgreSQL cannot extract an array with elements
+        ## more than 1500. So we have to use unnest to help to load a large array
+        ## TODO: Create a separate array loading function to specifically deal
+        ## with such situations and can be called by other functions.
+        res <- .db.getQuery(paste0("select unnest(", names(x)[1], ") as v from (",
+                                   content(x),
+                                   .limit.str(nrows), ") s"), conn.id(x))
 
+        n <- dim(x)[1]
         dims <- x@.dim
-
-        res <- arraydb.to.arrayr(res[1,1], "double")
-        res <- matrix(res, nrow = dims[1], ncol = dims[2])
         
-        msg.level <- .set.msg.level(msg.level, conn.id(x)) # reset message level
-        options(warn = warn.r) # reset R warning level
+        if (n == 1) {
+            ## rst <- arraydb.to.arrayr(res[,1], "double")
+            if (x@.is.symmetric[1])
+                rst <- new("dspMatrix", uplo = "U", x = res[,1], Dim = as.integer(dims))
+            else
+                rst <- new("dgeMatrix", x = res[,1], Dim = as.integer(dims))
+        } else {
+            rst <- list()
+            l <- dim(res)[1] / n
+            for (i in seq_len(n)) {
+                ## rst[[i]] <- arraydb.to.arrayr(res[i,1], "double")
+                if (x@.is.symmetric[i])
+                    rst[[i]] <- new("dtpMatrix", uplo = "U",
+                                    x = res[(i-1)*l + seq(l),1],
+                                    Dim = as.integer(dims))
+                else
+                    rst[[i]] <- new("dgeMatrix", x = res[(i-1)*l + seq(l),1],
+                                    Dim = as.integer(dims))
+            }
+        }
+
+        .restore.warnings(warnings)
            
-        return (res)
+        return (rst)
+    })
+
+## ----------------------------------------------------------------------
+
+## Directly read a table without wrapping it with db.table
+setMethod (
+    "preview",
+    signature (x = "character"),
+    def = function (x, conn.id = 1, nrows = 100, array = TRUE) {
+        x <- db.data.frame(x, conn.id=conn.id, verbose = FALSE)
+        lookat(x, nrows=nrows, array=array)
     })
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## same as preview
 lookat <- function (x, nrows = 100, array = TRUE)
 {
-    
     if (is(x, "db.table")) return (preview(x, nrows, array = array))
-    if (is(x, "db.Rcrossprod")) return (preview(x, FALSE))
+    if (is(x, "db.Rcrossprod")) return (preview(x, nrows, FALSE))
     preview(x, nrows, FALSE, array)
 }

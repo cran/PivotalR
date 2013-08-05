@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Array operation utilities
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .array.udt <- c("_int4", "_bool", "_float8", "_text", "_varchar", "_int8",
                "int2")
@@ -31,7 +31,7 @@
     }
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## expand a db.Rquery's array column
 .expand.array <- function (x)
@@ -105,7 +105,7 @@
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .find.array.data.type <- function(udt)
 {
@@ -117,4 +117,27 @@
         "boolean"
     else
         "text"
+}
+
+## -----------------------------------------------------------------------
+
+## count the column number of x
+## different from dim, because (1) includes array elements
+## (2) does not count row number
+.col.number.all <- function (x)
+{
+    cnt <- 0
+    for (col in names(x)) {
+        if (x[[col]]@.col.data_type != "array")
+            cnt <- cnt + 1
+        else {
+            res <- .db.getQuery(paste0("select array_upper(", col,
+                                       ",1) - array_lower(", col,
+                                       ",1) + 1 as n from (",
+                                       content(x[[col]]), " limit 1) s"),
+                                conn.id(x))
+            cnt <- cnt + res$n
+        }
+    }
+    cnt
 }

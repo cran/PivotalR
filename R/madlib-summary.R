@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Summary of a db.obj
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
                             get.distinct = TRUE, get.quartiles = TRUE,
@@ -9,10 +9,11 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
                             interactive = FALSE)
 {
     ## Only newer versions of MADlib are supported
-    idx <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id(x), 2]
-    if (identical(.localVars$db[[idx]]$madlib.v, numeric(0)) ||
-        .madlib.version.number(conn.id(x)) < 0.6)
-        stop("MADlib error: Please use Madlib version newer than 0.5!")
+    .check.madlib.version(x)
+
+    db.str <- (.get.dbms.str(conn.id(x)))$db.str
+    if (db.str == "HAWQ")
+        stop("Right now MADlib on HAWQ does not support table summary !")
     
     if (!is(x, "db.obj"))
         stop("Cannot operate on non db.obj objects!")
@@ -22,11 +23,7 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
         stop("target.cols or grouping.cols has columns that are not in ",
              "the data!")
 
-    msg.level <- .set.msg.level("panic", conn.id(x)) # suppress all messages
-    ## disable warning in R, RPostgreSQL
-    ## prints some unnessary warning messages
-    warn.r <- getOption("warn")
-    options(warn = -1)
+    warnings <- .suppress.warnings(conn.id(x))
     
     if (is(x, "db.view") || is(x, "db.Rquery")) {
         if (interactive) {
@@ -70,12 +67,12 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
                  ");", sep = "")
 
     res <- try(.db.getQuery(sql, conn.id(x)), silent = TRUE)
-    if (is(res, ".err.class"))
+    if (is(res, .err.class))
         stop("Could not do the summary!")
 
     res <- try(.db.getQuery(paste("select * from", out.tbl),
                             conn.id(x)), silent = TRUE)
-    if (is(res, ".err.class"))
+    if (is(res, .err.class))
         stop("Could not do the summary!")
     
     .db.removeTable(out.tbl, conn.id(x))
@@ -83,13 +80,12 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
 
     class(res) <- "summary.madlib"
 
-    msg.level <- .set.msg.level(msg.level, conn.id(x)) # reset message level
-    options(warn = warn.r) # reset R warning level
+    .restore.warnings(warnings)
     
     return (res)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .logical.string <- function (str)
 {
@@ -99,7 +95,7 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
         "FALSE"
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .text.string <- function (str)
 {
@@ -112,7 +108,7 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
               "'", sep = "")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .array.string <- function (str, type = "FLOAT8[]")
 {
@@ -123,7 +119,7 @@ madlib.summary <- function (x, target.cols = NULL, grouping.cols = NULL,
               "]", sep = "")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 print.summary.madlib <- function (x,
                                   digits = max(3L,
@@ -167,14 +163,14 @@ print.summary.madlib <- function (x,
     }
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 show.summary.madlib <- function(object)
 {
     print(object)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .cut.digits <- c("fraction_missing", "fraction_blank", "mean", "variance",
                  "first_quartile", "median", "third_quartile", "quartile_array",
@@ -207,7 +203,7 @@ show.summary.madlib <- function(object)
     return (res)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric("summary")
 

@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## ----------------------------------------------------------------------
 ## Wrapper function for MADlib's lm function
-## ------------------------------------------------------------------------
+## ----------------------------------------------------------------------
 
 ## na.action is a place holder
 ## will implement later in R (using temp table), or will implement
@@ -16,13 +16,8 @@ madlib.lm <- function (formula, data, na.action,
     
     ## Only newer versions of MADlib are supported
     .check.madlib.version(data)
-    
-    ## suppress all messages
-    msg.level <- .set.msg.level("panic", conn.id(data)) 
-    ## disable warning in R, RPostgreSQL
-    ## prints some unnessary warning messages
-    warn.r <- getOption("warn")
-    options(warn = -1)
+
+    warnings <- .suppress.warnings(conn.id(data))
 
     ## analyze the formula
     analyzer <- .get.params(formula, data)
@@ -31,11 +26,19 @@ madlib.lm <- function (formula, data, na.action,
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
     tbl.source <- analyzer$tbl.source
 
+    db.str <- (.get.dbms.str(conn.id(data)))$db.str
+    if (db.str == "HAWQ" && hetero)
+        stop("Right now MADlib on HAWQ does not support computing ",
+             "heteroskedasticity in linear regression !")
+    
     ## dependent, independent and grouping strings
     if (is.null(params$grp.str))
         grp <- "NULL"
     else
-        if (.madlib.version.number(conn.id(data)) > 0.7)
+        if (db.str == "HAWQ") {
+            stop("Right now MADlib on HAWQ does not support grouping ",
+                 "in linear regression !")
+        } else if (.madlib.version.number(conn.id(data)) > 0.7)
             grp <- paste0("'", params$grp.str, "'")
         else
             grp <- paste("'{", params$grp.str, "}'::text[]")
@@ -43,22 +46,28 @@ madlib.lm <- function (formula, data, na.action,
     ## construct SQL string
     conn.id <- conn.id(data)
     tbl.source <- gsub("\"", "", content(data))
-    tbl.output <- .unique.string()
     madlib <- schema.madlib(conn.id) # MADlib schema name
-    sql <- paste("select ", madlib, ".linregr_train('",
-                 tbl.source, "', '", tbl.output, "', '",
-                 params$dep.str, "', '", params$ind.str, "', ",
-                 grp, ", ", hetero, ")", sep = "")
-
+    if (db.str == "HAWQ") {
+        tbl.output <- NULL
+        sql <- paste0("select (f).* from (select ", madlib, ".linregr(",
+                      params$dep.str, ",", params$ind.str, ") as f from ",
+                      tbl.source, ") s")
+    } else {
+        tbl.output <- .unique.string()
+        sql <- paste0("select ", madlib, ".linregr_train('",
+                      tbl.source, "', '", tbl.output, "', '",
+                      params$dep.str, "', '", params$ind.str, "', ",
+                      grp, ", ", hetero, ")")
+    }
+        
     ## execute and get the result
     res <- .get.res(sql, tbl.output, conn.id)
 
     ## drop temporary tables
-    .db.removeTable(tbl.output, conn.id)
+    if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
     if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
 
-    msg.level <- .set.msg.level(msg.level, conn.id) # reset message level
-    options(warn = warn.r) # reset R warning level
+    .restore.warnings(warnings)
 
     ## organize the result
     n <- length(params$ind.vars)
@@ -106,7 +115,7 @@ madlib.lm <- function (formula, data, na.action,
     else return (rst)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 summary.lm.madlib <- function (object, ...)
 {
@@ -119,7 +128,7 @@ summary.lm.madlib.grps <- function (object, ...)
 }
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Pretty format of linear regression result
 print.lm.madlib.grps <- function (x,
@@ -199,14 +208,14 @@ print.lm.madlib.grps <- function (x,
     cat("\n")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 show.lm.madlib.grps <- function (object)
 {
     print(object)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 print.lm.madlib <- function (x,
                              digits = max(3L, getOption("digits") - 3L),
@@ -278,7 +287,7 @@ print.lm.madlib <- function (x,
     cat("\n")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 show.lm.madlib <- function (object)
 {

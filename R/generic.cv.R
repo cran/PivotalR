@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Generic cross-validation, not a wrapper of MADlib function
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 generic.cv <- function (train, predict, metric, data,
                         params = NULL, k = 10)
@@ -12,9 +12,7 @@ generic.cv <- function (train, predict, metric, data,
         stop("params must be a list!")
 
     conn.id <- conn.id(data)
-    msg.level <- .set.msg.level("panic", conn.id)
-    warn.r <- getOption("warn")
-    options(warn = -1)
+    warnings <- .suppress.warnings(conn.id)
     
     cuts <- .cut.data(data, k)
     for (i in 1:k) {
@@ -41,8 +39,7 @@ generic.cv <- function (train, predict, metric, data,
         }
         delete(content(cuts$inter), conn.id, TRUE)
 
-        msg.level <- .set.msg.level(msg.level, conn.id) 
-        options(warn = warn.r) # reset R warning level
+        .restore.warnings(warnings)
         
         data.frame(err = mean(err), err.std = sd(err))
     } else {
@@ -79,15 +76,14 @@ generic.cv <- function (train, predict, metric, data,
         }
         delete(cuts$inter)
 
-        msg.level <- .set.msg.level(msg.level, conn.id) 
-        options(warn = warn.r) # reset R warning level
+        .restore.warnings(warnings)
         
         cbind(args,
               data.frame(err = colMeans(err), err.std = .colSds(err)))
     }
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .create.args <- function (arg.names, params, i)
 {
@@ -100,7 +96,7 @@ generic.cv <- function (train, predict, metric, data,
     res
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .colSds <- function (dat)
 {

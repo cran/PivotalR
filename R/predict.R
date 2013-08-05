@@ -1,19 +1,21 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Predict
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 predict.lm.madlib <- function (object, newdata, ...)
 {
-    .predict(object, newdata, "linregr_predict", "double precision", "float8")
+    .predict(object, newdata, "linregr_predict", "double precision",
+             "float8")
 }
 
 predict.lm.madlib.grps <- function (object, newdata, ...)
 {
-    .predict(object, newdata, "linregr_predict", "double precision", "float8")
+    .predict(object, newdata, "linregr_predict", "double precision",
+             "float8")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 predict.logregr.madlib <- function (object, newdata, ...)
 {
@@ -25,7 +27,7 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
     .predict(object, newdata, "logregr_predict", "boolean", "bool")
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .predict <- function (object, newdata, func.str, data.type, udt.name)
 {
@@ -34,6 +36,8 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
     
     if (!is(newdata, "db.obj"))
         stop("New data for prediction must be a db.obj!")
+
+    db.str <- (.get.dbms.str(conn.id(newdata)))$db.str
 
     madlib <- schema.madlib(conn.id(newdata))
     if (is(newdata, "db.data.frame")) {
@@ -55,30 +59,48 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
         else where.str <- ""
         sort <- newdata@.sort
     }
-    if (!is(newdata, "db.data.frame"))
-        ind.str <- .replace.col.with.expr(object[[1]]$ind.str,
-                                          names(newdata),
-                                          newdata@.expr)
-    else
-        ind.str <- object[[1]]$ind.str
+    
+    if (db.str != "HAWQ") {
+        if (!is(newdata, "db.data.frame"))
+            ind.str <- .replace.col.with.expr(object[[1]]$ind.str,
+                                              names(newdata),
+                                              newdata@.expr)
+        else
+            ind.str <- object[[1]]$ind.str
+    } else {
+        if (!is(newdata, "db.data.frame"))
+            ind.vars <- .replace.col.with.expr(object[[1]]$ind.vars,
+                                               names(newdata),
+                                               newdata@.expr)
+        else
+            ind.vars <- object[[1]]$ind.vars
+        if (object[[1]]$has.intercept) ind.vars <- c(1, ind.vars)
+    }
     
     ## deal with groups
     coef.i <- which(names(object[[1]]) == "coef")
     grp.col <- names(object[[1]])[seq_len(coef.i - 1)]
 
     if (length(object[[1]]$grp.cols) == 0) {
-        coef <- paste("array[", paste(object[[1]]$coef, collapse = ", "),
-                      "]",
-                      sep = "")
-        expr <- paste(madlib, ".", func.str, "(", coef, ", ",
-                      ind.str, ")", sep = "")
+        if (db.str != "HAWQ") {
+            coef <- paste("array[", paste(object[[1]]$coef,
+                                          collapse = ", "), "]",
+                          sep = "")
+            expr <- paste(madlib, ".", func.str, "(", coef, ", ",
+                          ind.str, ")", sep = "")
+        } else {
+            expr <- paste(object[[1]]$coef, ind.vars, sep = "*",
+                          collapse = " + ")
+            if (func.str == "logregr_predict")
+                expr <- paste0(expr, " > 0")
+        }
     } else {
         l <- length(object[[1]]$grp.cols)
         expr <- "case when "
         n <- length(object)
         for (i in seq_len(n)) {
             tmp <- ""
-            if (i != n) {
+            ## if (i != n) {
                 for (j in seq_len(l)) {
                     tmp <- paste(tmp, object[[i]]$grp.cols[j], " = '",
                                  object[[i]][[object[[i]]$grp.cols[j]]],
@@ -92,16 +114,25 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
                     tmp <- .replace.col.with.expr(tmp, names(newdata),
                                                   newdata@.expr)
                 expr <- paste(expr, tmp, " then ", sep = "")
+            ## }
+        
+            if (db.str != "HAWQ") {
+                coef.i <- paste("array[", paste(object[[i]]$coef,
+                                                collapse = ", "),
+                                "]", sep = "")
+                expr <- paste(expr, madlib, ".", func.str, "(", coef.i,
+                              ", ", ind.str, ")", sep = "")
+            } else {
+                expr <- paste0(expr, paste(object[[1]]$coef, ind.vars,
+                                           sep = "*", collapse = " + "))
+                if (func.str == "logregr_predict")
+                    expr <- paste0(expr, " > 0")
             }
-            coef.i <- paste("array[", paste(object[[i]]$coef,
-                                            collapse = ", "),
-                            "]", sep = "")
-            expr <- paste(expr, madlib, ".", func.str, "(", coef.i, ", ",
-                          ind.str, ")", sep = "")
-            if (i < n - 1)
+            
+            if (i < n)
                 expr <- paste(expr, " when ", sep = "")
-            else if (i == n - 1)
-                expr <- paste(expr, " else ", sep = "")
+            ## else if (i == n - 1)
+                ## expr <- paste(expr, " else ", sep = "")
             else
                 expr <- paste(expr, " end", sep = "")
         }    
@@ -137,7 +168,7 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .replace.col.with.expr <- function (str, cols, expr)
 {
@@ -151,3 +182,4 @@ predict.logregr.madlib.grps <- function (object, newdata, ...)
     }
     str
 }
+

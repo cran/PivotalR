@@ -1,19 +1,24 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Utility functions used by madlib
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## check whether newer MADlib version is used
-.check.madlib.version <- function (data)
+.check.madlib.version <- function (data, allowed.version = 0.6)
 {
     ## Only newer versions of MADlib are supported
-    idx <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id(data), 2]
-    if (identical(.localVars$db[[idx]]$madlib.v, numeric(0)) ||
-        .madlib.version.number(conn.id(data)) < 0.6)
-        stop("MADlib error: Please use Madlib version 0.6 or 0.7!")
+    conn.id <- conn.id(data)
+    idx <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id, 2]
+    db.info <- .get.dbms.str(conn.id)
+    if (db.info$db.str != "HAWQ") {
+        if (identical(.localVars$db[[idx]]$madlib.v, numeric(0)) ||
+            .madlib.version.number(conn.id) < allowed.version)
+            stop("MADlib error: Please use Madlib version v",
+                 allowed.version, " or newer !")
+    }
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Analyze the formula and get each terms
 .get.params <- function (formula, data)
@@ -23,7 +28,7 @@
     ## create temp table for db.Rquery objects
     is.tbl.source.temp <- FALSE
     tbl.source <- character(0)
-    if (is(params$data, "db.Rquery")) {
+    if (is(params$data, "db.Rquery") || is(params$data, "db.view")) {
         tbl.source <- .unique.string()
         is.tbl.source.temp <- TRUE
         data <- as.db.data.frame(x = params$data,
@@ -42,7 +47,7 @@
          tbl.source = tbl.source)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## get the result
 .get.res <- function (sql, tbl.output = NULL, conn.id)
@@ -64,7 +69,7 @@
     res
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .get.groups <- function (x)
 {
@@ -77,6 +82,8 @@
         return (NULL)
     }
 }
+
+## -----------------------------------------------------------------------
 
 .get.groups.grps <- function (x)
 {
@@ -93,22 +100,44 @@
     res
 }
 
+## ----------------------------------------------------------------------
+
+groups <- function (x) UseMethod("groups", x)
+
+## -----------------------------------------------------------------------
+
 groups.lm.madlib <- function (x)
 {
     .get.groups(x)
 }
+
+## -----------------------------------------------------------------------
 
 groups.logregr.madlib <- function (x)
 {
     .get.groups(x)
 }
 
+## -----------------------------------------------------------------------
+
 groups.lm.madlib.grps <- function (x)
 {
     .get.groups.grps(x)
 }
 
+## -----------------------------------------------------------------------
+
 groups.logregr.madlib.grps <- function (x)
 {
     .get.groups.grps(x)
+}
+
+## ----------------------------------------------------------------------
+
+## delete all __madlib_temp_* tables from a database
+clean.madlib.temp <- function(conn.id = 1)
+{
+    for (tbl in db.objects("__madlib_temp_\\d+_\\d+_\\d+__",
+                           conn.id=conn.id))
+        delete(tbl, conn.id=conn.id)
 }

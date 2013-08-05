@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## Private variables of the package
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## If we decide to change the package name,
 ## this definition will make things easier,
@@ -9,18 +9,18 @@
 ## in the package, instead we use this constant.
 .this.pkg.name <- "PivotalR"
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Which R packages are used for connection
 ## We might want to support multiple packages
 .supported.connections <- c(# "RODBC", # not supported yet
                             "RPostgreSQL")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 .err.class <- "try-error"
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## All local variables defined at the package loading time
 ## cannot be changed without exposing to users. If we really
@@ -42,9 +42,9 @@
 ## (4) drv - drivers for each connection packages
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## create class structure
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## The R object has its corresponding table/view in database
 ## object in database
@@ -82,7 +82,7 @@ setClass("db.view",
              ),
          contains = "db.data.frame")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## The R object has no coresponding table in database
 ## It is generated in the middle of computations that involve
@@ -107,18 +107,23 @@ setClass("db.Rquery",
              .where = "character", # WHERE clause
              .is.factor = "logical", # a boolean vector
              .factor.suffix = "character",
-             .sort = "list" # order by
-             )
+             .sort = "list", # order by
+             .is.agg = "logical" # is this an aggrgate?
+             ),
+         prototype = list(.is.agg = FALSE)
          )
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## matrix representation
 setClass("db.Rcrossprod",
-         representation(.dim = "numeric"),
+         representation(
+             .is.crossprod = "logical", # is the column a crossprod
+             .is.symmetric = "logical", # is the column crossprod symmetric
+             .dim = "numeric"), # 
          contains = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Abstract interface, which is the parent of both classes
 ## defined in the above.

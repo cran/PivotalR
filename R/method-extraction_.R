@@ -1,7 +1,7 @@
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 ## extraction function $ and [[
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "$",
@@ -15,7 +15,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod(
     "[[",
@@ -60,7 +60,7 @@ setMethod(
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setMethod (
     "[",
@@ -106,6 +106,11 @@ setMethod (
                     j <- seq_len(length(names(x)))
             } else if (is(j, "db.Rquery"))
                 j <- .db.getQuery(paste(content(j), "limit 1"), conn.id(x))
+        }
+
+        if (n == 2 && length(names(x)) == 1 && is(i, "db.Rquery")) {
+            n <- 3
+            j <- 1
         }
         
         if (n == 2) { # select columns
@@ -166,7 +171,7 @@ setMethod (
     },
     valueClass = "db.Rquery")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## utility function
 ## Find the indices of an array inside another array
@@ -182,7 +187,7 @@ setMethod (
     res
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 ## Create db.Rquery in methods
 .create.db.Rquery <- function (x, cols.i, where = "")
@@ -209,8 +214,10 @@ setMethod (
 
     if (where != "") where.str <- paste(" where", where)
     else where.str <- ""
+
+    is.col.i.char <- is.character(cols.i)
     
-    if (is.character(cols.i)) {
+    if (is.col.i.char) {
         if (all(cols.i %in% names(x))) {
             cols.i <- .gwhich(names(x), cols.i)
             nss <- names(x)
@@ -244,7 +251,8 @@ setMethod (
         }
     }
 
-    if (length(names(x)) == 1 && x@.col.data_type == "array") {
+    if (length(names(x)) == 1 && x@.col.data_type == "array"
+        && !is.col.i.char) {
         if (is.null(cols.i)) cols.i <- seq_len(length(nss))
         expr <- nss[cols.i]
         col.name <- paste(x@.col.name, "[", cols.i, "]", sep = "")
@@ -264,7 +272,8 @@ setMethod (
     col.udt_name <- x@.col.udt_name[cols.i]
     is.factor <- x@.is.factor[cols.i]
     factor.suffix <- x@.factor.suffix[cols.i]
-    if (length(names(x)) == 1 && x@.col.data_type == "array") {
+    if (length(names(x)) == 1 && x@.col.data_type == "array"
+        && !is.col.i.char) {
         idx <- which(.array.udt == x@.col.udt_name)
         col.data_type <- rep(.array.dat[idx], length(cols.i))
         col.udt_name <- rep(gsub("_", "", .array.udt[idx]), length(cols.i))
@@ -289,7 +298,7 @@ setMethod (
         .sort = sort)
 }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------
 
 setGeneric ("subset")
 
