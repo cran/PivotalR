@@ -4,6 +4,9 @@
 ## logistic regressions
 ## -----------------------------------------------------------------------
 
+setClass("logregr.madlib")
+setClass("logregr.madlib.grps")
+
 ## na.action is a place holder
 ## family specific parameters are in control, which
 ## is a list of parameters
@@ -14,26 +17,32 @@ madlib.glm <- function (formula, data, family = "gaussian",
     args$formula <- formula
     args$data <- data
     args$na.action <- na.action
-    call <- deparse(match.call())
+    call <- match.call()
 
     if (tolower(family) == "gaussian" || tolower(family) == "linear")
     {
         fit <- do.call(madlib.lm, args)
-        fit$call <- call
+        if (is(fit, "lm.madlib")) fit$call <- call
+        else
+            for (i in seq_len(length(fit))) fit[[i]]$call <- call
         return (fit)
     }
 
     if (tolower(family) == "binomial" || tolower(family) == "logistic")
     {
         fit <- do.call(.madlib.logregr, args)
-        fit$call <- call
+        if (is(fit, "logregr.madlib")) fit$call <- call
+        else
+            for (i in seq_len(length(fit))) fit[[i]]$call <- call
         return (fit)
     }
 
     if (family == "multinomial")
     {
         fit <- do.call(.madlib.mlogregr, args)
-        fit$call <- call
+        if (is(fit, "mlogregr.madlib")) fit$call <- call
+        else
+            for (i in seq_len(length(fit))) fit[[i]]$call <- call
         return (fit)
     }
 
@@ -51,6 +60,8 @@ madlib.glm <- function (formula, data, family = "gaussian",
         stop("madlib.lm cannot be used on the object ",
              deparse(substitute(data)))
 
+    origin.data <- data
+    
     ## Only newer versions of MADlib are supported
     .check.madlib.version(data)
 
@@ -80,25 +91,31 @@ madlib.glm <- function (formula, data, family = "gaussian",
     madlib <- schema.madlib(conn.id) # MADlib schema name
     if (db.str == "HAWQ") {
         tbl.output <- NULL
-        sql <- paste0("select (f).* from (select ", madlib,
-                      ".logregr('", tbl.source, "', '", params$dep.str,
-                      "', '", params$ind.str, "', ", max_iter,
-                      ", '", method, "', ", tolerance, ") as f) s")
+        sql <- paste("select (f).* from (select ", madlib,
+                     ".logregr('", tbl.source, "', '", params$dep.str,
+                     "', '", params$ind.str, "', ", max_iter,
+                     ", '", method, "', ", tolerance, ") as f) s",
+                     sep = "")
     } else {
         tbl.output <- .unique.string()
-        sql <- paste0("select ", madlib, ".logregr_train('",
-                      tbl.source, "', '", tbl.output, "', '",
-                      params$dep.str, "', '", params$ind.str, "', ",
-                      grp, ", ", max_iter, ", '", method, "', ",
-                      tolerance, ")")
+        sql <- paste("select ", madlib, ".logregr_train('",
+                     tbl.source, "', '", tbl.output, "', '",
+                     params$dep.str, "', '", params$ind.str, "', ",
+                     grp, ", ", max_iter, ", '", method, "', ",
+                     tolerance, ")", sep = "")
     }
 
     ## execute the logistic regression and get the result
     res <- .get.res(sql, tbl.output, conn.id)
 
     ## drop temporary tables
-    if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
+    ## if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
     if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
+
+    if (db.str == "HAWQ")
+        model <- NULL
+    else
+        model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
 
     .restore.warnings(warnings)
 
@@ -141,6 +158,10 @@ madlib.glm <- function (formula, data, family = "gaussian",
         rst[[i]]$call <- r.call
         rst[[i]]$dummy <- r.dummy
         rst[[i]]$dummy.expr <- r.dummy.expr
+        rst[[i]]$model <- model
+        rst[[i]]$terms <- params$terms
+        rst[[i]]$nobs <- nrow(data)
+        rst[[i]]$data <- origin.data
         class(rst[[i]]) <- "logregr.madlib"
     }
     
@@ -173,7 +194,7 @@ print.logregr.madlib.grps <- function (x,
     n.grps <- length(x)
     
     if (x[[1]]$has.intercept)
-        rows <- c("(Intercept)", x$ind.vars)
+        rows <- c("(Intercept)", x[[1]]$ind.vars)
     else
         rows <- x[[1]]$ind.vars
     for (i in seq_len(length(x[[1]]$col.name)))
@@ -182,7 +203,7 @@ print.logregr.madlib.grps <- function (x,
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
-    cat("\nCall:\n", paste(x[[1]]$call, sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x[[1]]$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
     if (n.grps > 1)
         cat("\nThe data is divided into", x$grps, "groups\n")
@@ -266,7 +287,7 @@ print.logregr.madlib <- function (x,
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
-    cat("\nCall:\n", paste(x$call, sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
  
     cat("\n---------------------------------------\n\n")

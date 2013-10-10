@@ -71,7 +71,7 @@ setMethod (
             is.temp <- TRUE
         }
         
-        f <- paste0(getwd(), "/", x)
+        f <- paste(getwd(), "/", x, sep = "")
         if (file.exists(f)) x <- f
         else if (!file.exists(x))
             stop("the file does not exist!")
@@ -88,6 +88,9 @@ setMethod (
     key = character(0), distributed.by = NULL,
     is.temp = FALSE, ...)
 {
+    if (!.is.conn.id.valid(conn.id))
+        stop("Connection ID ", conn.id, " is not valid!")
+    warnings <- .suppress.warnings(conn.id)
     if (is.null(table.name)) {
         table.name <- .unique.string()
         is.temp <- TRUE
@@ -116,11 +119,10 @@ setMethod (
         (is.temp && .db.existsTempTable(table, conn.id)[[1]]))
         stop("Table already exists!")
 
-    warnings <- .suppress.warnings(conn.id)
-    
     .db.writeTable(table, x, add.row.names = add.row.names,
                    distributed.by = distributed.by,
                    is.temp = is.temp, conn.id = conn.id, ...)
+
     if (length(table) == 1 && !is.temp) {
         table_schema <- .db.getQuery("select current_schema()", conn.id);
         table.str <- paste(table_schema, ".", table, sep = "")
@@ -132,8 +134,12 @@ setMethod (
                            key, "\")", sep = ""), conn.id)
 
     .restore.warnings(warnings)
-    
-    list(res = db.data.frame(x = table.name, conn.id = conn.id, key = key,
+
+    tbn <- strsplit(table.name, "\\.")[[1]]
+    tbnn <- paste("\"", .strip(tbn, "\""),
+                  "\"", collapse = ".", sep = "")
+
+    list(res = db.data.frame(x = tbnn, conn.id = conn.id, key = key,
          verbose = verbose, is.temp = is.temp),
          conn.id = conn.id)
 }
@@ -148,7 +154,9 @@ setMethod (
     def = function (x, table.name = NULL, verbose = TRUE,
     is.view = FALSE,
     is.temp = FALSE,  pivot = TRUE,
-    distributed.by = NULL, nrow = NULL) {
+    distributed.by = NULL, nrow = NULL, field.types = NULL) {
+        warnings <- .suppress.warnings(conn.id(x))
+        
         if (is.null(table.name)) {
             table.name <- .unique.string()
             is.temp <- TRUE
@@ -157,13 +165,12 @@ setMethod (
         conn.id <- conn.id(x)
 
         dist.str <- .get.distributed.by.str(conn.id, distributed.by)
-        
         exists <- db.existsObject(table.name, conn.id, is.temp)
-        if (is.temp) exists <- exists[[1]]
-        if (exists) stop("The table already exists in connection ", conn.id, "!")
 
-        warnings <- .suppress.warnings(conn.id(x))
-        
+        if (is.temp) exists <- exists[[1]]
+        if (exists) stop("The table already exists in connection ",
+                         conn.id, "!")
+
         if (is.temp) 
             temp.str <- "temp"
         else
@@ -183,8 +190,25 @@ setMethod (
         ## column, because sometimes one wants to use the original
         ## data without regarding it as a factor. For example, as the
         ## grouping column.
-        extra <- paste(x@.expr, paste("\"", names(x), "\"", sep = ""),
-                       sep = " as ", collapse = ",")
+        if (is.null(field.types)) {
+            data.types <- x@.col.data_type
+            extra <- paste(x@.expr, 
+                           paste("\"", names(x), "\"", sep = ""),
+                           sep = " as ", collapse = ",")
+        } else {
+            data.types <- character(0)
+            for (i in names(x)) {
+                if (is.null(field.types[[i]])) {
+                    .restore.warnings(warnings)
+                    stop("field.types should include all column types!")
+                }
+                data.types <- c(data.types, field.types[[i]])
+            }
+            extra <- paste(paste("(", x@.expr, ")::", data.types, sep = ""),
+                           paste("\"", names(x), "\"", sep = ""),
+                           sep = " as ", collapse = ",")
+        }
+
         ## suffix used to avoid conflicts
         suffix <- x@.factor.suffix
         appear <- x@.col.name
@@ -216,7 +240,7 @@ setMethod (
                         is.factor <- c(is.factor, FALSE)
                         if (extra != "") extra <- paste(extra, ", ")
                         dex <- paste("(case when ", x@.expr[i], " = '",
-                                     distinct[j], "'::", x@.col.data_type[i],
+                                     distinct[j], "'::", data.types[i],
                                      " then 1 else 0 end)", sep = "")
                         extra <- paste(extra, " ", dex, " as ",
                                        "\"", new.col, "\"", sep = "")
@@ -228,7 +252,7 @@ setMethod (
                 } 
             }
         }
-        
+
         if (x@.where != "")
             where <- paste(" where", x@.where)
         else
@@ -238,18 +262,26 @@ setMethod (
             nrow.str <- paste(" limit ", nrow, " ", sep = "")
         else
             nrow.str <- ""
-        
-        content.str <- paste("select ", extra, " from ", tbl, where, sep = "")
-                
-        create.str <- paste("create ", temp.str, " ", obj.str, " \"",
-                            table.name,
-                            "\" as (", content.str, nrow.str, ") ", dist.str, sep = "")
 
-        .db.getQuery(create.str, conn.id) # create table
+        content.str <- paste("select ", extra, " from ", tbl, where,
+                             x@.sort$str,
+                             sep = "")
+
+        tbn <- strsplit(table.name, "\\.")[[1]]
+        tbnn <- paste("\"", .strip(tbn, "\""),
+                      "\"", collapse = ".", sep = "")
+
+        create.str <- paste("create ", temp.str, " ", obj.str, " ",
+                            tbnn,
+                            " as (", content.str, nrow.str, ") ",
+                            dist.str, sep = "")
+
+        .get.res(sql = create.str, conn.id = conn.id,
+                 warns = warnings) # create table
 
         .restore.warnings(warnings)
 
-        res <- db.data.frame(x = table.name, conn.id = conn.id, key = x@.key,
+        res <- db.data.frame(x = tbnn, conn.id = conn.id, key = x@.key,
                              verbose = verbose, is.temp = is.temp)
         res@.is.factor <- is.factor
         res@.factor.suffix <- suffix
@@ -268,15 +300,19 @@ setMethod (
     signature (x = "db.data.frame"),
     def = function (x, table.name = NULL, verbose = TRUE,
     is.view = FALSE, is.temp = FALSE,
-    distributed.by = NULL, nrow = NULL) {
+    distributed.by = NULL, nrow = NULL, field.types = NULL) {
         if (is.null(table.name)) {
             table.name <- .unique.string()
             is.temp <- TRUE
         }
+
+        tbn <- strsplit(table.name, "\\.")[[1]]
+        tbnn <- paste("\"", .strip(tbn, "\""),
+                      "\"", collapse = ".", sep = "")
         
-        if (table.name == content(x))
+        if (tbnn == content(x))
             stop("cannot copy an object into itself!")
-        list(res = as.db.data.frame(x[,], table.name, FALSE,
-             is.view, is.temp, FALSE, distributed.by, nrow),
+        list(res = as.db.data.frame(x[,], tbnn, FALSE,
+             is.view, is.temp, FALSE, distributed.by, nrow, field.types),
              conn.id = conn.id(x))
     })

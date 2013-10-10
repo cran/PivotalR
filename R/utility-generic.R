@@ -27,9 +27,9 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
         }
 
         if (type == "character") {
-            elm <- regmatches(str[i],
-                              gregexpr("[^,\"\\s\\{\\}]+|\"[^\"]*\"",
-                                       str[i], perl=T))[[1]]
+            elm <- .regmatches(str[i],
+                               gregexpr("[^,\"\\s\\{\\}]+|\"[^\"]*\"",
+                                        str[i], perl=T))[[1]]
             elm <- as.character(elm)
         } else {
             elm <- strsplit(gsub("(\\{|\\})", "", str[i]), ",")[[1]]
@@ -103,14 +103,38 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
     return (parts)
 }
 
-.db.table.schema.str <- function (table)
+## ----------------------------------------------------------------------
+
+.db.table.schema.str <- function (table, conn.id)
 {
+    warns <- .suppress.warnings(conn.id)
+    table <- .strip(table, "\"")
     l <- length(table)
-    if (l == 2)
-        return (paste("table_name = '", table[2], "' and table_schema = '",
+    if (l == 2) {
+        .restore.warnings(warns)
+        return (paste("table_name = '", table[2],
+                      "' and table_schema = '",
                       table[1], "'", sep = ""))
-    else if (l == 1)
-        return (paste("table_name = '", table, "'", sep = ""))
+    } else if (l == 1) {
+        schemas <- arraydb.to.arrayr(
+            .get.res(sql="select current_schemas(True)",
+                     conn.id=conn.id, warns=warns),
+            type = "character")
+        table_schema <- character(0)
+        for (schema in schemas)
+            if (.db.existsTable(c(schema, table), conn.id)) {
+                table_schema <- c(table_schema, schema)
+                break
+            }
+        .restore.warnings(warns)
+        if (identical(table_schema, character(0))) {
+            stop("This table does not exist in the search path!")
+        } else {
+            return (paste("table_name = '", table,
+                          "' and table_schema = '", table_schema,
+                          "'", sep = ""))
+        }
+    }
 }
 
 ## -----------------------------------------------------------------------
@@ -120,7 +144,7 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
 {
     pick <- .db.getQuery(
         paste("select count(*) from information_schema.tables where ",
-              .db.table.schema.str(table), sep = ""), conn.id)
+              .db.table.schema.str(table, conn.id), sep = ""), conn.id)
     if (pick == 1)
         return (TRUE)
     else
@@ -134,7 +158,7 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
 {
     pick <- .db.getQuery(
         paste("select count(*) from information_schema.views where ",
-              .db.table.schema.str(table), sep = ""), conn.id)
+              .db.table.schema.str(table, conn.id), sep = ""), conn.id)
     if (pick == 1)
         return (TRUE)
     else
@@ -193,8 +217,7 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
 
     ## create a fake data.frame only to extract
     ## terms when there is "." in formula
-    fake.data <- data.frame(t(names(fdata)))
-    colnames(fake.data) <- names(fdata)
+    fake.data <- structure(vector("list", ncol(fdata)), names=names(fdata), class="data.frame")
     f.terms <- terms(f1, data = fake.data) # formula terms
     ## the 1st row is the dependent variable
     f.factors <- attr(f.terms, "factors")
@@ -212,19 +235,31 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
             col <- replace.cols[i]
             new.col <- names(data)[grep(paste(col, suffix[i], sep=""),
                                         names(data))]
-            new.col <- paste("(", paste(new.col, collapse = " + "), ")",
+            new.col <- paste("(", paste("`", new.col, "`", collapse = " + ",
+                                        sep = ""), ")",
                              sep = "")
             right.hand <- gsub(paste(col, "([^_\\w]+|$)", sep = ""),
                                paste(new.col, "\\1", sep = ""),
                                right.hand, perl = TRUE)
         }
     } else {
+        ## # make all text columns to be factor
+        ## for (i in seq_len(length(names(data)))) {
+        ##     if (data@.col.data_type[i] %in% .txt.types) {
+        ##         col <- data@.col.name[i]
+        ##         right.hand <- gsub(col,
+        ##                            paste0("as\\.factor\\(",
+        ##                                   col, "\\)"),
+        ##                            right.hand)
+        ##     }
+        ## }
+        
         ## find all the factor columns
         right.hand <- gsub("as.factor\\s*\\((.*)\\)",
                            "factor(\\1)", right.hand, perl = T)
-        elm <- regmatches(right.hand,
-                          gregexpr("factor\\s*\\([^\\(\\)]+\\)",
-                                   right.hand, perl=T))[[1]]
+        elm <- .regmatches(right.hand,
+                           gregexpr("factor\\s*\\([^\\(\\)]+\\)",
+                                    right.hand, perl=T))[[1]]
         col <- .strip(gsub("factor\\s*\\(([^\\(\\)]+)\\)", "\\1", elm,
                            perl = T))
         if (!all(col %in% names(data)))
@@ -239,8 +274,8 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
         for (cl in col) data[[cl]] <- as.factor(data[[cl]])
     }
 
-    right.hand <- gsub("as.factor\\((.*)\\)", "\\1", right.hand, perl = T)
-    right.hand <- gsub("factor\\((.*)\\)", "\\1", right.hand, perl = T)
+    right.hand <- gsub("as\\.factor\\((((?!as\\.factor).)*)\\)", "\\1", right.hand, perl = T)
+    right.hand <- gsub("factor\\((((?!factor).)*)\\)", "\\1", right.hand, perl = T)
 
     f.terms1 <- terms(formula(paste("~", right.hand)), data = fake.data)
     f.labels <- attr(f.terms1, "term.labels")
@@ -292,7 +327,8 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
     list(dep.str = dep.var, ind.str = ind.var, grp.str = grp,
          ind.vars = labels,
          has.intercept = as.logical(f.intercept),
-         data = data)
+         data = data,
+         terms = f.terms)
 }
 
 ## -----------------------------------------------------------------------

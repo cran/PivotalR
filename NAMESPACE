@@ -56,7 +56,8 @@ export("madlib.summary", "print.summary.madlib", "show.summary.madlib")
 
 export("db.objects", "db.existsObject")
 
-exportMethods("mean", "sum", "length", "max", "min")
+export("count")
+exportMethods("mean", "sum", "max", "min")
 export("sd", "var")
 
 exportMethods("sample")
@@ -82,3 +83,27 @@ export("summary.arima.css.madlib", "print.arima.css.madlib",
 export("clean.madlib.temp")
 
 export("db.default.schemas", "db.search.path")
+
+export("residuals.lm.madlib", "residuals.lm.madlib.grps",
+       "residuals.logregr.madlib", "residuals.logregr.madlib.grps")
+
+S3method(logLik, logregr.madlib)
+S3method(logLik, logregr.madlib.grps)
+S3method(logLik, lm.madlib)
+S3method(logLik, lm.madlib.grps)
+
+S3method(extractAIC, logregr.madlib)
+S3method(extractAIC, logregr.madlib.grps)
+S3method(extractAIC, lm.madlib)
+S3method(extractAIC, lm.madlib.grps)
+
+S3method(AIC, lm.madlib.grps)
+S3method(AIC, logregr.madlib.grps)
+
+S3method(as.data.frame, db.table)
+S3method(as.data.frame, db.view)
+S3method(as.data.frame, db.Rquery)
+
+S3method(as.environment, db.obj)
+S3method(with, db.obj)
+

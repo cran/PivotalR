@@ -22,8 +22,8 @@ available at \url{http://zimmeee.github.io/gp-r/#pivotalr}.
 \tabular{ll}{
 Package: \tab PivotalR\cr
 Type: \tab Package\cr
-Version: \tab 0.1.5\cr
-Date: \tab 2013-08-05\cr
+Version: \tab 0.1.6\cr
+Date: \tab 2013-09-09\cr
 License: \tab GPL (>= 2)\cr
 Depends: \tab methods, DBI, RPostgreSQL\cr
 }
@@ -91,7 +91,7 @@ include
 \author{
   Author: Predictive Analytics Team at Pivotal
   Inc. \email{user@madlib.net},  with contributions
-  from Woo Jung \email{Woo.Jung@gopivotal.com}
+  from Data Scientist Team at Pivotal Inc.
   
   Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
   Inc. \email{user@madlib.net}
@@ -269,4 +269,4 @@ x[is.na(x)] <- 45
 }
 }
 
-\keyword{ package }
+\keyword{package}

@@ -158,7 +158,7 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
   }
 
   \item{call}{
-    A string. The function call that generates this result.
+    A language object. The function call that generates this result.
   }
 
   \item{col.name}{
@@ -173,6 +173,25 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
     avoid naming conflicts, see \code{\link{as.factor,db.obj-method}}
     for details.
   }
+
+  \item{model}{
+    A \code{\linkS4class{db.data.frame}} object, which wraps the result
+    table of this function.
+  }
+
+  \item{terms}{ A \code{\link{terms}} object, describing the terms in
+    the model formula.  }
+  
+  \item{nobs}{
+    The number of observations used to fit the model.
+  }
+
+  \item{data}{The original \code{db.obj} object, which wraps all the
+  data used in the database.}
+  
+  Note that if there is grouping done, and there are multiple
+  \code{lm.madlib} objects in the final result, each one of them
+  contains the same copy \code{model}.
 }
 
 \references{
@@ -198,9 +217,13 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
 }
 
 \seealso{
-  \code{\link{madlib.glm}} logistic regression
+  \code{\link{madlib.glm}},
+  \code{\link{madlib.summary}}, \code{\link{madlib.arima}} are MADlib
+  wrapper functions.
 
   \code{\link{as.factor}} creates categorial variables for fitiing.
+
+  \code{\link{delete}} safely deletes the result of this function.
 }
 \examples{
 \dontrun{
@@ -234,5 +257,5 @@ fit <- madlib.lm(y ~ x, data = array.data)
 }
 }
 
-\keyword{ madlib }
-\keyword{ wrapper }
+\keyword{madlib}
+\keyword{stats}

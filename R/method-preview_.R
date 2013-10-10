@@ -135,9 +135,9 @@ setMethod (
         ## more than 1500. So we have to use unnest to help to load a large array
         ## TODO: Create a separate array loading function to specifically deal
         ## with such situations and can be called by other functions.
-        res <- .db.getQuery(paste0("select unnest(", names(x)[1], ") as v from (",
-                                   content(x),
-                                   .limit.str(nrows), ") s"), conn.id(x))
+        res <- .db.getQuery(paste("select unnest(", names(x)[1], ") as v from (",
+                                  content(x),
+                                  .limit.str(nrows), ") s", sep = ""), conn.id(x))
 
         n <- dim(x)[1]
         dims <- x@.dim
@@ -183,9 +183,10 @@ setMethod (
 ## -----------------------------------------------------------------------
 
 ## same as preview
-lookat <- function (x, nrows = 100, array = TRUE)
+lookat <- function (x, nrows = 100, array = TRUE, conn.id = 1)
 {
     if (is(x, "db.table")) return (preview(x, nrows, array = array))
     if (is(x, "db.Rcrossprod")) return (preview(x, nrows, FALSE))
+    if (is(x, "character")) return (preview(x, conn.id, nrows, array))
     preview(x, nrows, FALSE, array)
 }

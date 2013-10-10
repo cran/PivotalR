@@ -5,9 +5,9 @@
 
 setGeneric ("madlib.arima",
             def = function (x, ts, ...) {
-                call <- deparse(match.call())
+                call <- match.call()
                 fit <- standardGeneric("madlib.arima")
-                fit$call <- call
+                fit$call <- call # call must be in generic function
                 fit
             })
 
@@ -15,6 +15,7 @@ setClass("arima.css.madlib")
 
 ## ----------------------------------------------------------------------
 
+## One of the two interfaces of madlib.arima
 setMethod (
     "madlib.arima",
     signature (x = "db.Rquery", ts = "db.Rquery"),
@@ -41,6 +42,7 @@ setMethod (
         f.str <- paste(f.str, "|", paste(grp.names, collapse = "+"))
     }
 
+    ## Transform to the other interface
     madlib.arima(formula(f.str), data, order, seasonal, include.mean,
                  method, optim.method, optim.control, ...)
 })
@@ -56,6 +58,8 @@ setMethod (
     optim.method = "LM",
     optim.control = list(), ...)
 {
+    ## Prepare for another function
+    ## To avoid argument checking/matching
     args <- list(...)
     args <- c(args, optim.control)
     args$formula <- x
@@ -114,21 +118,27 @@ setMethod (
     data <- analyzer$data
     params <- analyzer$params
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
-    ## tbl.source <- analyzer$tbl.source
     tbl.source <- gsub("\"", "", content(data))
     
     if (length(params$ind.vars) != 1)
         stop("Only one time stamp is allowed !")
 
+    ## dependent, independent and grouping strings
+    if (is.null(params$grp.str))
+        grp <- "NULL"
+    else
+        stop("Right now MADlib does not support grouping in ARIMA !")
+    
     ## allow expressions as time series and time stamp
     ## create intermediate tables to accomodate this
     col.names <- names(data)
     if (!(.strip(params$ind.vars, "\"") %in% col.names) ||
         !(.strip(params$dep.str, "\"") %in% col.names)) {
         new.src <- .unique.string()
-        res <- .get.res(sql = paste0("create table ", new.src, " as ",
+        res <- .get.res(sql = paste("create table ", new.src, " as ",
                         "select ", params$dep.str, " as tval, ",
-                        params$ind.vars, " as tid from ", tbl.source),
+                        params$ind.vars, " as tid from ", tbl.source,
+                        sep = ""),
                         conn.id = conn.id)
         if (is.tbl.source.temp) delete(tbl.source)
         is.tbl.source.temp <- TRUE
@@ -137,26 +147,20 @@ setMethod (
         params$ind.vars <- "tid"
     }
 
-    ## dependent, independent and grouping strings
-    if (is.null(params$grp.str))
-        grp <- "NULL"
-    else
-        stop("Right now MADlib does not support grouping in ARIMA !")
-
     ## construct SQL string
     madlib <- schema.madlib(conn.id) # MADlib schema name
     tbl.output <- .unique.string()
-    order.str <- paste0("array[", toString(order), "]")
-    optim.control.str <- paste0("tau=", tau, ", e1=", e1, ", e2=", e2,
-                                ", e3=", e3, ", hessian_delta=",
-                                hessian.delta, ", chunk_size=",
-                                chunk.size, ", param_init=\"",
-                                param.init, "\"")
-    sql <- paste0("select ", madlib, ".arima_train('",
-                  tbl.source, "', '", tbl.output, "', '",
-                  params$ind.vars, "', '", params$dep.str, "', ",
-                  grp, ", ", include.mean, ", ", order.str, ", '",
-                  optim.control.str, "')")
+    order.str <- paste("array[", toString(order), "]", sep = "")
+    optim.control.str <- paste("tau=", tau, ", e1=", e1, ", e2=", e2,
+                               ", e3=", e3, ", hessian_delta=",
+                               hessian.delta, ", chunk_size=",
+                               chunk.size, ", param_init=\"",
+                               param.init, "\"", sep = "")
+    sql <- paste("select ", madlib, ".arima_train('",
+                 tbl.source, "', '", tbl.output, "', '",
+                 params$ind.vars, "', '", params$dep.str, "', ",
+                 grp, ", ", include.mean, ", ", order.str, ", '",
+                 optim.control.str, "')", sep = "")
 
     ## execute and get the result
     res <- .get.res(sql=sql, conn.id=conn.id)
@@ -164,6 +168,7 @@ setMethod (
     p <- order[1]
     d <- order[2]
     q <- order[3]
+    
     ## retrieve the coefficients
     res <- preview(tbl.output, conn.id=conn.id, "all")
     rst <- list()
@@ -174,12 +179,12 @@ setMethod (
     if (p != 0) {
         rst$coef <- c(rst$coef, res[1,1:p])
         rst$s.e. <- c(rst$s.e., res[1,p+(1:p)])
-        coef.names <- c(coef.names, paste0("ar", 1:p))
+        coef.names <- c(coef.names, paste("ar", 1:p, sep = ""))
     }
     if (q != 0) {
         rst$coef <- c(rst$coef, res[1,2*p + (1:q)])
         rst$s.e. <- c(rst$s.e., res[1,2*p+q+(1:q)])
-        coef.names <- c(coef.names, paste0("ma", 1:q))
+        coef.names <- c(coef.names, paste("ma", 1:q, sep = ""))
     }
     if (include.mean && d == 0) {
         rst$coef <- c(rst$coef, res[1,dim(res)[2]-1])
@@ -194,26 +199,25 @@ setMethod (
     rst$time.stamp <- params$ind.vars
     rst$time.series <- params$dep.str
 
-    res <- preview(paste0(tbl.output, "_summary"), conn.id=conn.id, "all")
+    res <- preview(paste(tbl.output, "_summary", sep = ""),
+                   conn.id=conn.id, "all")
     rst$sigma2 <- res$residual_variance
     rst$loglik <- res$log_likelihood
     rst$iter.num <- res$iter_num
     rst$exec.time <- res$exec_time
     
     ## create db.data.frame object for residual table
-    rst$residuals <- db.data.frame(paste0(tbl.output, "_residual"),
+    rst$residuals <- db.data.frame(paste(tbl.output, "_residual", sep = ""),
                                    conn.id = conn.id, verbose = FALSE)
     rst$model <- db.data.frame(tbl.output, conn.id = conn.id,
                                verbose = FALSE)
-    rst$statistics <- db.data.frame(paste0(tbl.output, "_summary"),
+    rst$statistics <- db.data.frame(paste(tbl.output, "_summary", sep = ""),
                                     conn.id = conn.id, verbose = FALSE)
 
-    ## drop temporary tables
+    ## If temp.source is TRUE, the delete(...) function
+    ## will delete it
     if (is.tbl.source.temp) rst$temp.source <- TRUE
     else rst$temp.source <- FALSE
-    ## if (is.tbl.source.temp) delete(tbl.source, conn.id)
-    ## delete(tbl.output, conn.id)         
-    ## delete(paste0(tbl.output, "_summary"), conn.id)
                 
     .restore.warnings(warnings)
 
@@ -235,7 +239,7 @@ print.arima.css.madlib <- function (x,
                                     getOption("digits") - 3L),
                                     ...)
 {
-    cat("\nCall:\n", paste(x$call, sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"),
         "\n\n", sep = "")
     cat("Coefficients:\n")
 
@@ -273,9 +277,9 @@ predict.arima.css.madlib <- function(object, n.ahead = 1, ...)
     tbl.output <- .unique.string()
     tbl.model <- .strip(content(object$model), "\"")
     madlib <- schema.madlib(conn.id) # MADlib schema name
-    sql <- paste0("select ", madlib, ".arima_forecast('",
-                  tbl.model, "', '", tbl.output, "',",
-                  n.ahead, ")")
+    sql <- paste("select ", madlib, ".arima_forecast('",
+                 tbl.model, "', '", tbl.output, "',",
+                 n.ahead, ")", sep = "")
     res <- .get.res(sql=sql, conn.id=conn.id)
     rst <- db.data.frame(tbl.output, conn.id=conn.id, verbose = FALSE)
 

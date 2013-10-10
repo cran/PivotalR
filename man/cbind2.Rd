@@ -8,16 +8,14 @@
 }
 
 \usage{
-\S4method{cbind2}{db.obj,db.obj}(x, y, ...)
+\S4method{cbind2}{db.obj,db.obj}(x, y)
 }
 
 \arguments{
   \item{x, y}{
  The signature of the method. Both arguments are \code{\linkS4class{db.obj}} objects.
 }
-\item{\dots}{
-  Other parameters, not implemented yet.
-}
+
 }
 \details{
     The main use of 'cbind2' is to be called by 'cbind()'
@@ -59,6 +57,6 @@ plot(lookat(z, 100))
 }
 }
 
-\keyword{data}
-\keyword{utilities}
+\keyword{data operation}
+\keyword{utility}
 

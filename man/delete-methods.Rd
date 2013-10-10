@@ -5,13 +5,21 @@
 \alias{delete,db.Rquery-method}
 \alias{delete,character-method}
 \alias{delete,arima.css.madlib-method}
+\alias{delete,summary.madlib-method}
+\alias{delete,lm.madlib-method}
+\alias{delete,lm.madlib.grps-method}
+\alias{delete,logregr.madlib-method}
+\alias{delete,logregr.madlib.grps-method}
+\alias{delete,bagging.model-method}
 
-\title{ Delete a \code{db.obj} object or a table/view in the database }
+\title{ Safely delete a \code{db.obj} object or a table/view in the database }
 
 \description{
   This function deletes a \code{db.data.frame} object together with the
   table/view that it points to. It deletes a \code{db.Rquery} object. It
-  can also directly delete a table or view in the database.
+  can also directly delete a table or view in the database. When applied
+  onto some composite data objects, it deletes the data table wrapped by
+  them. 
 }
 
 \usage{
@@ -23,6 +31,18 @@
 FALSE)
 
 \S4method{delete}{arima.css.madlib}(x)
+
+\S4method{delete}{summary.madlib}(x)
+
+\S4method{delete}{lm.madlib}(x)
+
+\S4method{delete}{lm.madlib.grps}(x)
+
+\S4method{delete}{logregr.madlib}(x)
+
+\S4method{delete}{logregr.madlib.grps}(x)
+
+\S4method{delete}{bagging.model}(x)
 }
 
 \arguments{
@@ -32,16 +52,34 @@ FALSE)
     A \code{db.data.frame} object, which
     points to a table or view in the database;
 
-    or a \code{db.Rquery}
-  object, which represents some operations on an existing
-  \code{db.data.frame} object;
+    Or a \code{db.Rquery}
+    object, which represents some operations on an existing
+    \code{db.data.frame} object;
 
-  or a string, the table/view name to delete in the database;
+    Or a string, the table/view name to delete in the database;
+    
+    Or an object which is the result of \code{\link{madlib.arima}}. In the
+    this case, the result model tables wrapped by \code{model},
+    \code{residuals} and \code{statistics} will be deleted.
 
-  or an object which is the result of \code{\link{madlib.arima}}. In the
-  last case, the result model tables include \code{model},
-  \code{residuals} and 
-  \code{statistics} will be deleted.} 
+    Or an object which is the result of \code{\link{madlib.summary}} (a
+    \code{summary.madlib} object). In this case the result table created
+    in the database and wrapped by the attribute
+    \code{"summary"} will be deleted.
+
+    Or an object which is the result of \code{\link{madlib.lm}} (a
+    \code{lm.madlib} or \code{lm.madlib.grps} object). In this
+    case, the result model table wrapped by \code{model} will be
+    deleted.
+
+    Or an object which is the result of \code{\link{madlib.glm}} with
+    \code{family = "binomial"} (a
+    \code{logregr.madlib} or \code{logregr.madlib.grps} object). In this
+    case, the result model table wrapped by \code{model} will be
+    deleted.
+
+    Or an object which is the result of \code{\link{generic.bagging}}.     In this case, all result model tables will be deleted.
+} 
 
 \item{conn.id}{
   An integer, default is 1. The connection ID to the database.
@@ -89,6 +127,10 @@ FALSE)
 
   \code{\link{as.db.data.frame}} creates a \code{db.data.frame} from a
   \code{data.frame}, a data file or a \code{db.Rquery}.
+
+  \code{\link{madlib.lm}}, \code{\link{madlib.glm}},
+  \code{\link{madlib.summary}}, \code{\link{madlib.arima}} are MADlib
+  wrapper functions whose results can be safely deleted by this function.
 }
 
 \examples{
@@ -124,4 +166,4 @@ for (table.name in to.delete) delete(table.name, conn.id = 2)
 
 \keyword{methods}
 \keyword{database}
-\keyword{utilities}
+\keyword{utility}

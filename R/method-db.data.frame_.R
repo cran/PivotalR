@@ -6,11 +6,19 @@
 db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
                            is.temp = FALSE)
 {
+    if (!.is.conn.id.valid(conn.id))
+        stop("Connection ID ", conn.id, " is not valid!")
+    warnings <- .suppress.warnings(conn.id)
+    
     if (! .is.arg.string(x))
         stop("The name of the database object must be a string!")
     if (! .is.conn.id.valid(conn.id))
         stop("There is no such a connection to any database!")
 
+    tbn <- strsplit(x, "\\.")[[1]]
+    x <- paste("\"", .strip(tbn, "\""),
+               "\"", collapse = ".", sep = "")
+    
     ## a vector (schema_name, table_name) or just table_name
     table <- .db.analyze.table.name(x) 
     exists <- db.existsObject(x, conn.id, is.temp)
@@ -23,9 +31,10 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
         stop("No such object in the connection ", conn.id)
 
     if (length(table) == 1)
-        content <- paste("\"", table, "\"", sep = "")
+        content <- paste("\"", .strip(table, "\""), "\"", sep = "")
     else
-        content <- paste("\"", table, "\"", sep = "", collapse = ".")
+        content <- paste("\"", .strip(table, "\""),
+                         "\"", sep = "", collapse = ".")
     
     if (.is.view(table, conn.id))
     {
@@ -48,7 +57,7 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
 
     col.info <- .db.getQuery(
         paste("select column_name, data_type, udt_name from information_schema.columns where ",
-              .db.table.schema.str(table), " order by ordinal_position", sep = ""), conn.id)
+              .db.table.schema.str(table, conn.id), " order by ordinal_position", sep = ""), conn.id)
 
     res@.col.name <- col.info$column_name
     res@.col.data_type <- tolower(col.info$data_type)
@@ -64,7 +73,8 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
     ## table type (local temp)
     tbl.type <- .db.getQuery(
         paste("select table_type from information_schema.tables where ",
-              .db.table.schema.str(table), sep = ""), conn.id)
+              .db.table.schema.str(table, conn.id), sep = ""), conn.id)
+
     res@.table.type <- tbl.type$table_type
 
     res@.is.factor <- rep(FALSE, length(res@.col.name))
@@ -74,7 +84,9 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
     if (verbose)
         message("An R object pointing to ", x,
                 " in connection ", conn.id, " is created !")
-    
+
+    .restore.warnings(warnings)
+
     return (res)
 }
 

@@ -187,7 +187,7 @@ method = "CSS", optim.method = "LM", optim.control = list(), ...)
   }
 
   \item{call}{
-    the matched function call.
+    A language object. The matched function call.
   }
 }
 
@@ -212,7 +212,11 @@ method = "CSS", optim.method = "LM", optim.control = list(), ...)
 }
 
 \seealso{
-  \code{\link{delete,arima.css.madlib-method}} deletes the result of
+    \code{\link{madlib.lm}}, \code{\link{madlib.glm}},
+  \code{\link{madlib.summary}} are MADlib
+  wrapper functions.
+  
+  \code{\link{delete}} deletes the result of
   this function together with the model, residual and statistics
   tables. 
 
@@ -274,6 +278,5 @@ s <- madlib.arima(tval+2 ~ I(tid + 1), x, order = c(2,0,1))
 }
 }
 
-\keyword{ madlib }
-\keyword{ wrapper }
-\keyword{ math }
+\keyword{madlib}
+\keyword{stats}

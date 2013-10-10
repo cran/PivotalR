@@ -3,6 +3,9 @@
 ## Wrapper function for MADlib's lm function
 ## ----------------------------------------------------------------------
 
+setClass("lm.madlib")
+setClass("lm.madlib.grps")
+
 ## na.action is a place holder
 ## will implement later in R (using temp table), or will implement
 ## in MADlib
@@ -13,63 +16,78 @@ madlib.lm <- function (formula, data, na.action,
     if (! is(data, "db.obj"))
         stop("madlib.lm cannot be used on the object ",
              deparse(substitute(data)))
+
+    origin.data <- data
     
     ## Only newer versions of MADlib are supported
     .check.madlib.version(data)
 
-    warnings <- .suppress.warnings(conn.id(data))
+    conn.id <- conn.id(data) # connection ID
+
+    ## Check for HAWQ
+    db.str <- (.get.dbms.str(conn.id))$db.str
+    if (db.str == "HAWQ" && hetero)
+        stop("Currently MADlib on HAWQ does not support computing ",
+             "heteroskedasticity in linear regression.")
+
+    ## suppress both SQL and R warnings
+    warnings <- .suppress.warnings(conn.id)
 
     ## analyze the formula
     analyzer <- .get.params(formula, data)
-    data <- analyzer$data
-    params <- analyzer$params
-    is.tbl.source.temp <- analyzer$is.tbl.source.temp
-    tbl.source <- analyzer$tbl.source
 
-    db.str <- (.get.dbms.str(conn.id(data)))$db.str
-    if (db.str == "HAWQ" && hetero)
-        stop("Right now MADlib on HAWQ does not support computing ",
-             "heteroskedasticity in linear regression !")
+    ## For db.view or db.R.query, create a temporary table
+    ## For pivoted db.Rquery, realize the pivoting
+    ## Else: just return the original data table
+    data <- analyzer$data
+
+    ## dependent, independent and grouping variables
+    ## has.intercept boolean
+    params <- analyzer$params
+
+    ## Is data temporarily created?
+    is.tbl.source.temp <- analyzer$is.tbl.source.temp
     
-    ## dependent, independent and grouping strings
+    ## grouping string
     if (is.null(params$grp.str))
         grp <- "NULL"
     else
         if (db.str == "HAWQ") {
-            stop("Right now MADlib on HAWQ does not support grouping ",
-                 "in linear regression !")
-        } else if (.madlib.version.number(conn.id(data)) > 0.7)
-            grp <- paste0("'", params$grp.str, "'")
+            stop("Currently MADlib on HAWQ does not support grouping ",
+                 "in linear regression.")
+        } else if (.madlib.version.number(conn.id) > 0.7)
+            grp <- paste("'", params$grp.str, "'", sep = "")
         else
             grp <- paste("'{", params$grp.str, "}'::text[]")
 
     ## construct SQL string
-    conn.id <- conn.id(data)
     tbl.source <- gsub("\"", "", content(data))
     madlib <- schema.madlib(conn.id) # MADlib schema name
     if (db.str == "HAWQ") {
         tbl.output <- NULL
-        sql <- paste0("select (f).* from (select ", madlib, ".linregr(",
-                      params$dep.str, ",", params$ind.str, ") as f from ",
-                      tbl.source, ") s")
+        sql <- paste("select (f).* from (select ", madlib, ".linregr(",
+                     params$dep.str, ",", params$ind.str, ") as f from ",
+                     tbl.source, ") s", sep = "")
     } else {
         tbl.output <- .unique.string()
-        sql <- paste0("select ", madlib, ".linregr_train('",
-                      tbl.source, "', '", tbl.output, "', '",
-                      params$dep.str, "', '", params$ind.str, "', ",
-                      grp, ", ", hetero, ")")
+        sql <- paste("select ", madlib, ".linregr_train('",
+                     tbl.source, "', '", tbl.output, "', '",
+                     params$dep.str, "', '", params$ind.str, "', ",
+                     grp, ", ", hetero, ")", sep = "")
     }
         
-    ## execute and get the result
+    ## execute and get the result, error handling is taken care of
     res <- .get.res(sql, tbl.output, conn.id)
 
-    ## drop temporary tables
-    if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
-    if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
+    if (db.str == "HAWQ")
+        model <- NULL
+    else
+        model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
 
+    ## reset SQL and R warning levels
     .restore.warnings(warnings)
 
-    ## organize the result
+    ## organize the result (into groups)
     n <- length(params$ind.vars)
     res.names <- names(res)
     rst <- list()
@@ -85,7 +103,7 @@ madlib.lm <- function (formula, data, na.action,
     r.ind.str <- params$ind.str
     r.col.name <- gsub("\"", "", data@.col.name)
     r.appear <- data@.appear.name
-    r.call <- deparse(match.call()) # the current function call itself
+    r.call <- match.call() # the current function call itself
     r.dummy <- data@.dummy
     r.dummy.expr <- data@.dummy.expr
     
@@ -106,11 +124,29 @@ madlib.lm <- function (formula, data, na.action,
         rst[[i]]$call <- r.call
         rst[[i]]$dummy <- r.dummy
         rst[[i]]$dummy.expr <- r.dummy.expr
-        class(rst[[i]]) <- "lm.madlib"
+        rst[[i]]$model <- model
+        rst[[i]]$terms <- params$terms
+        rst[[i]]$nobs <- nrow(data)
+        rst[[i]]$data <- origin.data
+        class(rst[[i]]) <- "lm.madlib" # A single model class
+
+        ## get error SS manually using predicted values
+        ## This takes too much time. Move it into isolated functions
+        ## pred <- .predict(rst[[i]], data, "linregr_predict", "double precision", "float8")
+        ## y <- eval(params$terms[[2]], as.environment(data))
+        ## rst[[i]]$sse <- lookat(sum((y - pred)^2))[1, 1, drop=TRUE]
     }
 
+    ## drop temporary tables
+    ## HAWQ does not need to drop the output table
+    ## if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
+    if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
+
+    ## the class of a list of models
     class(rst) <- "lm.madlib.grps"
-    
+
+    ## If no grouping, just return one model
+    ## Otherwise, return a list of models
     if (n.grps == 1) return (rst[[1]])
     else return (rst)
 }
@@ -131,6 +167,8 @@ summary.lm.madlib.grps <- function (object, ...)
 ## -----------------------------------------------------------------------
 
 ## Pretty format of linear regression result
+## Print a list of models
+## NOTE: code needs refactoring
 print.lm.madlib.grps <- function (x,
                                   digits = max(3L, getOption("digits") - 3L),
                                   ...)
@@ -147,7 +185,7 @@ print.lm.madlib.grps <- function (x,
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Linear Regression Result\n")
-    cat("\nCall:\n", paste(x[[1]]$call, sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x[[1]]$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
     if (n.grps > 1)
         cat("\nThe data is divided into", n.grps, "groups\n")
@@ -217,6 +255,8 @@ show.lm.madlib.grps <- function (object)
 
 ## -----------------------------------------------------------------------
 
+## Print a single model
+## NOTE: Code needs refactoring
 print.lm.madlib <- function (x,
                              digits = max(3L, getOption("digits") - 3L),
                              ...)
@@ -231,7 +271,7 @@ print.lm.madlib <- function (x,
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Linear Regression Result\n")
-    cat("\nCall:\n", paste(x$call, sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
     
     cat("\n---------------------------------------\n\n")
