@@ -164,7 +164,10 @@ setMethod (
         
         conn.id <- conn.id(x)
 
-        dist.str <- .get.distributed.by.str(conn.id, distributed.by)
+        if (is.view || !all(distributed.by %in% x@.col.name))
+            dist.str <- ""
+        else
+            dist.str <- .get.distributed.by.str(conn.id, distributed.by)
         exists <- db.existsObject(table.name, conn.id, is.temp)
 
         if (is.temp) exists <- exists[[1]]
@@ -180,10 +183,20 @@ setMethod (
         else
             obj.str <- "table"
 
+        if (x@.where != "")
+            where <- paste(" where", x@.where)
+        else
+            where <- ""
+        
         if (x@.source == x@.parent)
             tbl <- x@.parent
         else
             tbl <- paste("(", x@.parent, ") s", sep = "")
+
+        if (x@.where != "")
+            where <- paste(" where", x@.where)
+        else
+            where <- ""
 
         ## deal with factor, if exists
         ## We still need to keep the original non-factor
@@ -220,12 +233,14 @@ setMethod (
             cats <- x@.expr[x@.is.factor]
             sql <- "select "
             for (i in seq_len(length(cats))) {
-                sql <- paste(sql, "array_agg(distinct ", cats[i], ") as ",
+                sql <- paste(sql, "array_agg(distinct case when ", cats[i],
+                             " is NULL then 'NULL' else ",
+                             cats[i], "::text end) as ",
                              "distinct_", i, sep = "")
                 if (i != length(cats)) sql <- paste(sql, ",", sep = "")
             }
             ## scan through the table only once
-            sql <- paste(sql, " from ", tbl, sep = "")
+            sql <- paste(sql, " from ", tbl, where, sep = "")
             distincts <- .db.getQuery(sql, conn.id)
             idx <- 0
             for (i in seq_len(length(x@.is.factor))) {
@@ -239,8 +254,8 @@ setMethod (
                                         distinct[j], sep = "")
                         is.factor <- c(is.factor, FALSE)
                         if (extra != "") extra <- paste(extra, ", ")
-                        dex <- paste("(case when ", x@.expr[i], " = '",
-                                     distinct[j], "'::", data.types[i],
+                        dex <- paste("(case when ", x@.expr[i], "::text = '",
+                                     distinct[j], "'",
                                      " then 1 else 0 end)", sep = "")
                         extra <- paste(extra, " ", dex, " as ",
                                        "\"", new.col, "\"", sep = "")
@@ -252,11 +267,6 @@ setMethod (
                 } 
             }
         }
-
-        if (x@.where != "")
-            where <- paste(" where", x@.where)
-        else
-            where <- ""
 
         if (!is.null(nrow))
             nrow.str <- paste(" limit ", nrow, " ", sep = "")

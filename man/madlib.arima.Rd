@@ -191,6 +191,12 @@ method = "CSS", optim.method = "LM", optim.control = list(), ...)
   }
 }
 
+\author{
+  Author: Predictive Analytics Team at Pivotal Inc.
+  
+  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
+}
+
 \references{
   [1] Rob J Hyndman and George Athanasopoulos: Forecasting: principles
   and practice, http://otexts.com/fpp/ 
@@ -201,14 +207,6 @@ method = "CSS", optim.method = "LM", optim.control = list(), ...)
 
   [3] Henri Gavin: The Levenberg-Marquardt method for nonlinear least
   squares curve-fitting problems, 2011 
-}
-
-\author{
-  Author: Predictive Analytics Team at Pivotal Inc. \email{user@madlib.net}
-
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics
-  Team at Pivotal Inc. \email{user@madlib.net}, Hai Qian
-  \email{hai.qian@gopivotal.com} 
 }
 
 \seealso{
@@ -258,7 +256,7 @@ delete(s)
 s # s does not exist any more
 
 ## do not use formula
-s <- madlib.arima(x$tval, x$id, order = c(2,0,1))
+s <- madlib.arima(x$val, x$id, order = c(2,0,1))
 
 s
 
@@ -274,7 +272,7 @@ pred <- predict(s, n.ahead = 10)
 lookat(sort(pred, F, pred$step_ahead), "all")
 
 ## Use expressions
-s <- madlib.arima(tval+2 ~ I(tid + 1), x, order = c(2,0,1))
+s <- madlib.arima(val+2 ~ I(id + 1), x, order = c(2,0,1))
 }
 }
 

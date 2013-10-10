@@ -9,13 +9,13 @@ setClass("lm.madlib.grps")
 ## na.action is a place holder
 ## will implement later in R (using temp table), or will implement
 ## in MADlib
-madlib.lm <- function (formula, data, na.action, 
+madlib.lm <- function (formula, data, na.action = NULL, 
                        hetero = FALSE, ...) # param name too long
 {
     ## make sure fitting to db.obj
     if (! is(data, "db.obj"))
-        stop("madlib.lm cannot be used on the object ",
-             deparse(substitute(data)))
+        stop("madlib.lm can only be used on a db.obj object, and ",
+             deparse(substitute(data)), " is not!")
 
     origin.data <- data
     
@@ -34,7 +34,7 @@ madlib.lm <- function (formula, data, na.action,
     warnings <- .suppress.warnings(conn.id)
 
     ## analyze the formula
-    analyzer <- .get.params(formula, data)
+    analyzer <- .get.params(formula, data, na.action)
 
     ## For db.view or db.R.query, create a temporary table
     ## For pivoted db.Rquery, realize the pivoting
@@ -59,9 +59,17 @@ madlib.lm <- function (formula, data, na.action,
             grp <- paste("'", params$grp.str, "'", sep = "")
         else
             grp <- paste("'{", params$grp.str, "}'::text[]")
+    
+    tmp <- eval(parse(text = paste("with(data, ",
+                      params$origin.dep, ")", sep = "")))
+
+    if (tmp@.col.data_type %in% c("boolean", "text", "varchar"))
+        stop("The dependent variable type is not supported ",
+             "in linear regression!")
 
     ## construct SQL string
-    tbl.source <- gsub("\"", "", content(data))
+    ## tbl.source <- gsub("\"", "", content(data))
+    tbl.source <- content(data)
     madlib <- schema.madlib(conn.id) # MADlib schema name
     if (db.str == "HAWQ") {
         tbl.output <- NULL
@@ -96,10 +104,13 @@ madlib.lm <- function (formula, data, na.action,
     r.t_stats <- arraydb.to.arrayr(res$t_stats, "double", n)
     r.p_values <- arraydb.to.arrayr(res$p_values, "double", n)
     n.grps <- dim(r.coef)[1] # how many groups
+
     r.grp.cols <- gsub("\"", "", arraydb.to.arrayr(params$grp.str,
                                                    "character", n))
+    r.grp.expr <- params$grp.expr
     r.has.intercept <- params$has.intercept # do we have an intercept
-    r.ind.vars <- gsub("\"", "", params$ind.vars)
+    ## r.ind.vars <- gsub("\"", "", params$ind.vars)
+    r.ind.vars <- params$ind.vars
     r.ind.str <- params$ind.str
     r.col.name <- gsub("\"", "", data@.col.name)
     r.appear <- data@.appear.name
@@ -116,6 +127,7 @@ madlib.lm <- function (formula, data, na.action,
         rst[[i]]$t_stats <- r.t_stats[i,]
         rst[[i]]$p_values <- r.p_values[i,]
         rst[[i]]$grp.cols <- r.grp.cols
+        rst[[i]]$grp.expr <- r.grp.expr
         rst[[i]]$has.intercept <- r.has.intercept
         rst[[i]]$ind.vars <- r.ind.vars
         rst[[i]]$ind.str <- r.ind.str
@@ -126,8 +138,32 @@ madlib.lm <- function (formula, data, na.action,
         rst[[i]]$dummy.expr <- r.dummy.expr
         rst[[i]]$model <- model
         rst[[i]]$terms <- params$terms
-        rst[[i]]$nobs <- nrow(data)
-        rst[[i]]$data <- origin.data
+
+        if (length(r.grp.cols) != 0) {
+            ## cond <- Reduce(function(l, r) l & r,
+            cond <- .row.action(.combine.list(Map(function(x) {
+                if (is.na(rst[[i]][[r.grp.cols[x]]]))
+                    ## is.na(origin.data[,x])
+                    eval(parse(text = paste("with(origin.data, is.na(",
+                               r.grp.expr[x], "))", sep = "")))
+                else {
+                    ## origin.data[,x] == rst[[i]][[x]]
+                    if (is.character(rst[[i]][[r.grp.cols[x]]]))
+                        use <- "\"" %+% rst[[i]][[r.grp.cols[x]]] %+% "\""
+                    else
+                        use <- rst[[i]][[r.grp.cols[x]]]
+                    eval(parse(text = paste("with(origin.data, (",
+                               r.grp.expr[x], ") ==",
+                               use, ")", sep = "")))
+                }
+            }, seq_len(length(r.grp.expr)))), " and ")
+            rst[[i]]$data <- origin.data[cond,]
+        } else
+            rst[[i]]$data <- origin.data
+
+        rst[[i]]$origin.data <- origin.data
+        rst[[i]]$nobs <- nrow(rst[[i]]$data)
+
         class(rst[[i]]) <- "lm.madlib" # A single model class
 
         ## get error SS manually using predicted values
@@ -179,9 +215,11 @@ print.lm.madlib.grps <- function (x,
         rows <- c("(Intercept)", x[[1]]$ind.vars)
     else
         rows <- x[[1]]$ind.vars
+    rows <- gsub("\"", "", rows)
     for (i in seq_len(length(x[[1]]$col.name))) 
         if (x[[1]]$col.name[i] != x[[1]]$appear[i])
             rows <- gsub(x[[1]]$col.name[i], x[[1]]$appear[i], rows)
+    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Linear Regression Result\n")
@@ -195,8 +233,9 @@ print.lm.madlib.grps <- function (x,
         if (length(x[[i]]$grp.cols) != 0)
         {
             cat("Group", i, "when\n")
-            for (col in x[[i]]$grp.cols)
-                cat(col, ": ", x[[i]][[col]], "\n", sep = "")
+            for (col in seq_len(length(x[[i]]$grp.expr)))
+                cat(x[[i]]$grp.expr[col], ": ",
+                    x[[i]][[x[[i]]$grp.cols[col]]], "\n", sep = "")
             cat("\n")
         }
 
@@ -265,9 +304,11 @@ print.lm.madlib <- function (x,
         rows <- c("(Intercept)", x$ind.vars)
     else
         rows <- x$ind.vars
+    rows <- gsub("\"", "", rows)
     for (i in seq_len(length(x$col.name))) 
         if (x$col.name[i] != x$appear[i])
             rows <- gsub(x$col.name[i], x$appear[i], rows)
+    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Linear Regression Result\n")

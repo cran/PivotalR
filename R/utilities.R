@@ -29,8 +29,8 @@ is.db.data.frame <- function (x)
         valid[[i]] <- y[y[,id]>tick[i] & y[,id]<=tick[i+1],-id]
         train[[i]] <- y[!(y[,id]>tick[i] & y[,id]<=tick[i+1]),-id]
     }
-
-    list(train = train, valid = valid, inter = y)
+    
+    list(train = train, valid = valid, inter = y, dist.by = y@.dist.by)
 }
 
 ## ----------------------------------------------------------------------
@@ -131,4 +131,172 @@ is.db.data.frame <- function (x)
     } else {
         regmatches(x, m, invert)
     }    
+}
+
+## ----------------------------------------------------------------------
+
+.format <- function(str, lst)
+{
+    for (item in names(lst))
+        str <- gsub(paste("<", item, ">", sep = ""), lst[[item]], str)
+    gsub("\n", "", str)
+}
+
+## ----------------------------------------------------------------------
+
+## get the distributed by info
+.get.dist.policy <- function (table, conn.id)
+{
+    ## get the table name and schema
+    ## conn.id <- conn.id(x)
+    ## table <- .strip(x@.name, "\"")
+    table <- .strip(table, "\"")
+    l <- length(table)
+    if (l == 2) {
+        table.name <- table[2]
+        table.schema <- table[1]
+    } else {
+        schemas <- arraydb.to.arrayr(
+            .get.res(sql="select current_schemas(True)",
+                     conn.id=conn.id, warns=NULL),
+            type = "character")
+        table_schema <- character(0)
+        for (schema in schemas)
+            if (.db.existsTable(c(schema, table), conn.id)) {
+                table_schema <- c(table_schema, schema)
+                break
+            }
+        table.name <- table
+        table.schema <- table_schema
+    }
+
+    oid <- .db.getQuery(
+        .format("SELECT c.oid
+                 FROM pg_catalog.pg_class c
+                 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                 WHERE c.relname ~ '^(<table.name>)$'
+                 AND n.nspname ~ '^(<table.schema>)$'",
+                 list(table.name=table.name,
+                                      table.schema=table.schema)), conn.id)
+
+    attrnums <- .db.getQuery(
+        .format("SELECT attrnums
+                 FROM pg_catalog.gp_distribution_policy t
+                 WHERE localoid = '<oid>'", list(oid=as.numeric(oid))),
+        conn.id = conn.id)
+    attrnums <- as.integer(arraydb.to.arrayr(attrnums, "integer"))
+
+    if (is.na(attrnums)) return (NA)
+
+    cols <- .db.getQuery(
+        .format("SELECT attname FROM pg_attribute
+                 WHERE attrelid = '<oid>'
+                 AND (<attnum>)",
+                list(oid=oid,
+                     attnum=paste("attnum='", attrnums, "'", sep = "",
+                     collapse = " or "))), conn.id)[,,drop=TRUE]
+
+    cols
+}
+
+## ----------------------------------------------------------------------
+
+## get extra strings like where and sort etc
+.get.extra.str <- function(data)
+{
+    if (is(data, "db.data.frame")) {
+        tbl <- content(data)
+        src <- tbl
+        parent <- src
+        where <- ""
+        where.str <- ""
+        sort <- list(by = "", order = "", str = "")
+    } else {
+        if (data@.source == data@.parent)
+            tbl <- data@.parent
+        else
+            tbl <- paste("(", data@.parent, ") s", sep = "")
+        src <- data@.source
+        parent <- data@.parent
+        where <- data@.where
+        if (where != "") where.str <- paste(" where", where)
+        else where.str <- ""
+        sort <- data@.sort
+    }
+
+    list(tbl = tbl, where = where, where.str = where.str, sort = sort,
+         src = src, parent = parent)
+}
+
+## ----------------------------------------------------------------------
+
+setGeneric("rowSums")
+
+.row.action <- function (x, action)
+{
+    x <- db.array(x)[,]
+    ## Reduce(function(l,r) l+r, as.list(x))
+    res <- x[,1]
+    res@.expr <- paste(x@.expr, collapse = action)
+    res@.content <- gsub("^select 1 as", paste("select", res@.expr, "as"),
+                         res@.content)
+    res
+}
+
+setMethod("rowSums",
+    signature(x = "db.obj"),
+    function (x, na.rm = FALSE, dims = 1, ...)
+    {
+        .row.action(x, "+")
+    }
+)
+
+## ----------------------------------------------------------------------
+
+setGeneric("rowMeans")
+
+setMethod("rowMeans",
+    signature(x = "db.obj"),
+    function (x, na.rm = FALSE, dims = 1, ...)
+    {
+        rowSums(x) / length(names(x))
+    }
+)
+
+## ----------------------------------------------------------------------
+
+## combine a list of db.obj faster than using reduce
+.combine.list <- function (lst)
+{
+    n <- length(lst)
+    for (i in seq_len(n))
+        if (is(lst[[i]], "db.data.frame")) {
+            if (ncol(lst[[i]]) == 1 && lst[[i]]@.col.data_type == "array")
+                lst[[i]] <- db.array(lst[[i]])
+            else
+                lst[[i]] <- lst[[i]][,]
+        }
+
+    res <- lst[[1]]
+    res@.expr <- sapply(lst, function(x) x@.expr)
+    res@.col.name <- sapply(lst, function(x) x@.col.name)
+    res@.col.data_type <- sapply(lst, function(x) x@.col.data_type)
+    res@.col.udt_name <- sapply(lst, function(x) x@.col.udt_name)
+    res@.is.factor <- sapply(lst, function(x) x@.is.factor)
+    res@.factor.suffix <- sapply(lst, function(x) x@.factor.suffix)
+    res@.is.agg <- sapply(lst, function(x) x@.is.agg)
+
+    if (res@.source == res@.parent)
+        tbl <- res@.parent
+    else
+        tbl <- "(" %+% res@.parent %+% ") s"
+    where <- res@.where
+    if (where != "") where.str <- paste(" where", where)
+    else where.str <- ""
+    sort <- res@.sort
+    res@.content <- paste("select ",
+                          paste(res@.expr, "as", res@.col.name,
+                                collapse = ","),
+                          " from ", tbl, where.str, sort$str, sep = "")
+    res
 }

@@ -53,11 +53,17 @@
         } else {
             if (is.null(case))
                 x.names[idx] <- value@.expr[i]
-            else
+            else {
+                if (is.na(value@.expr[i]))
+                    vstr <- "NULL"
+                else
+                    vstr <- paste(value@.expr[i], "::", x@.col.data_type[idx],
+                                  sep = "")
                 x.names[idx] <- paste("case when ", case, " then ",
-                                      value@.expr[i], "::", x@.col.data_type[idx],
+                                      vstr,
                                       " else ", x.expr[idx],
                                       " end", sep = "")
+            }
             x.col.data_type[idx] <- value@.col.data_type[i]
             x.col.udt_name[idx] <- value@.col.udt_name[i]
             is.factor[idx] <- value@.is.factor[i]
@@ -97,7 +103,8 @@
         .col.udt_name = x.col.udt_name,
         .is.factor = is.factor,
         .factor.suffix = factor.suffix,
-        .sort = sort)
+        .sort = sort,
+        .dist.by = x@.dist.by)
 }
 
 ## -----------------------------------------------------------------------
@@ -130,11 +137,18 @@
             if (is.null(case))
                 x.names[idx] <- as.character(value)
             else
-                if (case[i] != "NULL")
+                if (case[i] != "NULL") {
+                    if (is.na(value))
+                        vstr <- "NULL"
+                    else
+                        vstr <- paste(value, "::",
+                                      x@.col.data_type[idx],
+                                      sep = "")
                     x.names[idx] <- paste("case when ", case[i], " then ",
-                                          value, "::", x@.col.data_type[idx],
+                                          vstr,
                                           " else ", x@.expr[idx],
                                           " end", sep = "")
+                }
             x.col.data_type[idx] <- type
             x.col.udt_name[idx] <- udt
             is.factor[idx] <- FALSE
@@ -183,7 +197,8 @@
         .col.udt_name = x.col.udt_name,
         .is.factor = is.factor,
         .factor.suffix = factor.suffix,
-        .sort = sort)
+        .sort = sort,
+        .dist.by = x@.dist.by)
 }
 
 ## -----------------------------------------------------------------------
@@ -359,7 +374,8 @@ setMethod (
     "[<-",
     signature (x = "db.obj", value = "db.Rquery"),
     function (x, i, j, value) {
-        n <- length(sys.calls()[[1]]) - 1
+        ## n <- length(sys.calls()[[1]]) - 1
+        n <- nargs()
         if (is(value, "db.Rquery") && value@.is.agg) {
             value <- as.numeric(lookat(value))
             if (missing(i) && missing(j)) {
@@ -423,7 +439,8 @@ setMethod (
     signature (x = "db.obj", value = "character"),
     function (x, i, j, value) {
         value <- paste("'", value, "'", sep = "")
-        n <- length(sys.calls()[[1]]) - 1
+        ## n <- length(sys.calls()[[1]]) - 1
+        n <- nargs()
         if (length(x@.col.name) == 1 && x@.col.data_type == "array") {
             x <- .expand.array(x)
             if (n == 3)
@@ -468,7 +485,8 @@ setMethod (
     "[<-",
     signature (x = "db.obj", value = "integer"),
     function (x, i, j, value) {
-        n <- length(sys.calls()[[1]]) - 1
+        ## n <- length(sys.calls()[[1]]) - 1
+        n <- nargs()
         if (length(x@.col.name) == 1 && x@.col.data_type == "array") {
             x <- .expand.array(x)
             if (n == 3)
@@ -511,7 +529,7 @@ setMethod (
     "[<-",
     signature (x = "db.obj", value = "numeric"),
     function (x, i, j, value) {
-        n <- length(sys.calls()[[1]]) - 1
+        n <- nargs()
         if (length(x@.col.name) == 1 && x@.col.data_type == "array") {
             x <- .expand.array(x)
             if (n == 3)
@@ -558,7 +576,8 @@ setMethod (
     "[<-",
     signature (x = "db.obj", value = "logical"),
     function (x, i, j, value) {
-        n <- length(sys.calls()[[1]]) - 1
+        ## n <- length(sys.calls()[[1]]) - 1
+        n <- nargs()
         if (length(x@.col.name) == 1 && x@.col.data_type == "array") {
             x <- .expand.array(x)
             if (n == 3)

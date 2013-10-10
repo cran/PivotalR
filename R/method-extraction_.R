@@ -41,9 +41,14 @@ setMethod(
             .create.db.Rquery(x, cols.i = i, x.where)
         } else if (na == 3) {
             if (identical(x@.key, character(0))) {
-                message("Error : there is no unique ID associated",
-                        " with each row of the table!")
-                stop()
+                if (identical(i, logical(0))) {
+                    return (structure(vector("list", length(names(x))),
+                                      names = names(x), class = "data.frame"))
+                } else {
+                    message("Error : there is no unique ID associated",
+                            " with each row of the table!")
+                    stop()
+                }
             }
             if (x.where != "") {
                 x.where <- paste("(", x.where, ") and ", sep = "")
@@ -85,13 +90,18 @@ setMethod (
             i.missing <- TRUE
         else
             i.missing <- FALSE
-        
+
         if (n == 3) {
             if (!i.missing && identical(x@.key, character(0)) &&
                 !is(i, "db.Rquery")) {
-                message("Error : there is no unique ID associated",
-                        " with each row of the table!")
-                stop()
+                if (identical(i, logical(0)))
+                    return (structure(vector("list", length(names(x))),
+                                      names = names(x), class = "data.frame"))
+                else {
+                    message("Error : there is no unique ID associated",
+                            " with each row of the table!")
+                    stop()
+                }
             }
             if (!i.missing && is(i, "db.Rquery")) {
                 if (length(i@.expr) > 1 || i@.col.data_type != "boolean") {
@@ -121,7 +131,7 @@ setMethod (
             ## }
             if (is(i, "db.Rquery")) {
                 if (all(i@.col.data_type == "boolean")) {
-                    return (i)
+                    return (x[i,])
                 } else {
                     i <- as.vector(unlist(.db.getQuery(paste(content(i), "limit 1"), conn.id(x))))
                     if (length(i) > length(names(x)))
@@ -148,9 +158,15 @@ setMethod (
                                                  where.str, rb, sep = ""))
             } else if (!is(i, "db.Rquery")) {
                 if (identical(x@.key, character(0))) {
-                    message("Error : there is no unique ID associated",
-                            " with each row of the table!")
-                    stop()
+                    if (identical(i, logical(0))) {
+                        return (structure(vector("list", length(names(x))),
+                                          names = names(x),
+                                          class = "data.frame"))
+                    } else {
+                        message("Error : there is no unique ID associated",
+                                " with each row of the table!")
+                        stop()
+                    }
                 }
 
                 ## where.str <- paste(x@.key, "=", i, collapse = " or ")
@@ -222,8 +238,9 @@ setMethod (
             cols.i <- .gwhich(names(x), cols.i)
             nss <- names(x)
         } else {
-            message("Error : column does not exist!")
-            stop()
+            return (NULL)
+            ## message("Error : column does not exist!")
+            ## stop()
         }            
     } else if (is(cols.i, "numeric") || is.null(cols.i)) {
         if (!is.null(cols.i)) {
@@ -233,6 +250,7 @@ setMethod (
                 stop()
             }
         }
+
         if (length(names(x)) == 1 && x@.col.data_type == "array") {
             if (is(x, "db.data.frame")) ep <- x@.col.name
             else ep <- x@.expr
@@ -273,7 +291,7 @@ setMethod (
     is.factor <- x@.is.factor[cols.i]
     factor.suffix <- x@.factor.suffix[cols.i]
     if (length(names(x)) == 1 && x@.col.data_type == "array"
-        && !is.col.i.char) {
+        && !is.col.i.char && gsub("array_agg\\(.*\\)", "", expr) == expr) {
         idx <- which(.array.udt == x@.col.udt_name)
         col.data_type <- rep(.array.dat[idx], length(cols.i))
         col.udt_name <- rep(gsub("_", "", .array.udt[idx]), length(cols.i))
@@ -295,7 +313,8 @@ setMethod (
         .where = where,
         .is.factor = is.factor,
         .factor.suffix = factor.suffix,
-        .sort = sort)
+        .sort = sort,
+        .dist.by = x@.dist.by)
 }
 
 ## -----------------------------------------------------------------------

@@ -19,7 +19,7 @@
 }
 
 \usage{
-madlib.lm(formula, data, na.action, hetero = FALSE, ...)
+madlib.lm(formula, data, na.action = NULL, hetero = FALSE, ...)
 }
 
 \arguments{
@@ -41,9 +41,9 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
 
   \item{na.action}{
     A string which indicates what should happen when the data
-    contain \code{NA}s. Future possible
-  values include \code{"na.omit"}, \code{"na.exclude"}, \code{"na.fail"}
-  and \code{NULL}. Currently not implemented yet. 
+    contain \code{NA}s. Possible
+  values include \code{\link{na.omit}}, \code{"na.exclude"}, \code{"na.fail"}
+  and \code{NULL}. Right now, \code{\link{na.omit}} has been implemented. When the value is \code{NULL}, nothing is done on the R side and \code{NA} values are filtered on the MADlib side. User defined \code{na.action} function is allowed.
   }
 
   \item{hetero}{
@@ -171,7 +171,7 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
     we are dealing with the factor variables, where the dummy variable
     names can be very long due to the inserting of a random string to
     avoid naming conflicts, see \code{\link{as.factor,db.obj-method}}
-    for details.
+    for details. The list also contains \code{dummy} and \code{dummy.expr}, which are also used for processing the categorial variables, but do not contain any important information.
   }
 
   \item{model}{
@@ -186,28 +186,30 @@ madlib.lm(formula, data, na.action, hetero = FALSE, ...)
     The number of observations used to fit the model.
   }
 
-  \item{data}{The original \code{db.obj} object, which wraps all the
-  data used in the database.}
+  \item{data}{A \code{db.obj} object, which wraps all the
+  data used in the database. If there are fittings for multiple groups,   then this is only the wrapper for the data in one group.}
+
+\item{origin.data}{
+  The original \code{db.obj} object. When there is no grouping, it is equal to \code{data} above, otherwise it is the "sum" of \code{data} from all groups.
+}
   
   Note that if there is grouping done, and there are multiple
   \code{lm.madlib} objects in the final result, each one of them
   contains the same copy \code{model}.
 }
 
+
+\author{
+  Author: Predictive Analytics Team at Pivotal Inc.
+
+  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
+}
 \references{
   [1] Wikipedia: Breusch-Pagan test,
   \url{http://en.wikipedia.org/wiki/Breusch-Pagan_test}
   [2] Documentation of linear regression in MADlib v0.6,
   \url{http://doc.madlib.net/v0.6/group__grp__linreg.html}.
 }
-
-\author{
-  Author: Predictive Analytics Team at Pivotal Inc. \email{user@madlib.net}
-
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}, Hai Qian \email{hai.qian@gopivotal.com}
-}
-
 \note{
   \code{|} is not part of standard R formula object, but many R packages
   use \code{|} to add their own functionalities into formula
@@ -245,7 +247,7 @@ fit # display the result
 ## Another example
 x <- as.db.data.frame(abalone, "abalone")
 
-fit <- madlib.lm(rings ~ . - id | sex + length + height, data = x)
+fit <- madlib.lm(rings ~ . - id | sex + (id < 2000), data = x)
 
 ## 3rd example
 ## The table has two columns: x is an array, y is double precision
@@ -254,6 +256,18 @@ array.data <- db.data.frame("tbl_has_array_column")
 ## Fit to y using every element of x
 ## This does not work in R's lm, but works in madlib.lm
 fit <- madlib.lm(y ~ x, data = array.data)
+
+fit <- madlib.lm(y ~ x - x[1], data = array.data)
+
+fit <- madlib.lm(y ~ . - x[1:2], data = array.data)
+
+fit <- madlib.lm(as.integer(y < 10) ~ . - x[1:2], data = array.data)
+
+## 4th example
+## Step-wise feature selection
+dat <- as.db.data.frame(abalone, "abalone")
+start <- madlib.lm(rings ~ . - id - sex, data = dat)
+step(start)
 }
 }
 

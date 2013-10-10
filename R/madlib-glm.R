@@ -10,9 +10,11 @@ setClass("logregr.madlib.grps")
 ## na.action is a place holder
 ## family specific parameters are in control, which
 ## is a list of parameters
-madlib.glm <- function (formula, data, family = "gaussian",
-                        na.action = "na.omit", control = list(), ...)
+madlib.glm <- function (formula, data,
+                        family = c("gaussian", "linear", "binomial", "logistic"),
+                        na.action = NULL, control = list(), ...)
 {
+    family <- match.arg(family)
     args <- control
     args$formula <- formula
     args$data <- data
@@ -52,29 +54,28 @@ madlib.glm <- function (formula, data, family = "gaussian",
 
 ## -----------------------------------------------------------------------
 
-.madlib.logregr <- function (formula, data, na.action, method = "irls",
-                             max_iter = 10000, tolerance = 1e-5)
+.madlib.logregr <- function (formula, data, na.action = NULL, method = "irls",
+                             max.iter = 10000, tolerance = 1e-5)
 {
     ## make sure fitting to db.obj
     if (! is(data, "db.obj"))
-        stop("madlib.lm cannot be used on the object ",
-             deparse(substitute(data)))
-
+        stop("madlib.lm can only be used on a db.obj object, and ",
+             deparse(substitute(data)), " is not!")
     origin.data <- data
-    
+
     ## Only newer versions of MADlib are supported
     .check.madlib.version(data)
 
     warnings <- .suppress.warnings(conn.id(data))
 
-    analyzer <- .get.params(formula, data)
+    analyzer <- .get.params(formula, data, na.action)
     data <- analyzer$data
     params <- analyzer$params
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
     tbl.source <- analyzer$tbl.source
 
     db.str <- (.get.dbms.str(conn.id(data)))$db.str
-    
+
     ## dependent, independent and grouping strings
     if (is.null(params$grp.str))
         grp <- "NULL::text"
@@ -87,21 +88,24 @@ madlib.glm <- function (formula, data, family = "gaussian",
 
     ## construct SQL string
     conn.id <- conn.id(data)
-    tbl.source <- gsub("\"", "", content(data))
+    ## tbl.source <- gsub("\"", "", content(data))
+    tbl.source <- content(data)
     madlib <- schema.madlib(conn.id) # MADlib schema name
     if (db.str == "HAWQ") {
         tbl.output <- NULL
         sql <- paste("select (f).* from (select ", madlib,
-                     ".logregr('", tbl.source, "', '", params$dep.str,
-                     "', '", params$ind.str, "', ", max_iter,
+                     ".logregr('", tbl.source, "', '",
+                     gsub("'", "''", params$dep.str),
+                     "', '", params$ind.str, "', ", max.iter,
                      ", '", method, "', ", tolerance, ") as f) s",
                      sep = "")
     } else {
         tbl.output <- .unique.string()
         sql <- paste("select ", madlib, ".logregr_train('",
                      tbl.source, "', '", tbl.output, "', '",
-                     params$dep.str, "', '", params$ind.str, "', ",
-                     grp, ", ", max_iter, ", '", method, "', ",
+                     gsub("'", "''", params$dep.str),
+                     "', '", params$ind.str, "', ",
+                     grp, ", ", max.iter, ", '", method, "', ",
                      tolerance, ")", sep = "")
     }
 
@@ -132,8 +136,10 @@ madlib.glm <- function (formula, data, family = "gaussian",
     r.ind.str <- params$ind.str
     r.grp.cols <- gsub("\"", "", arraydb.to.arrayr(params$grp.str,
                                                      "character", n))
+    r.grp.expr <- params$grp.expr
     r.has.intercept <- params$has.intercept # do we have an intercept
-    r.ind.vars <- gsub("\"", "", params$ind.vars)
+    ## r.ind.vars <- gsub("\"", "", params$ind.vars)
+    r.ind.vars <- params$ind.vars
     r.col.name <- gsub("\"", "", data@.col.name)
     r.appear <- data@.appear.name
     r.call <- call # the current function call itself
@@ -150,6 +156,7 @@ madlib.glm <- function (formula, data, family = "gaussian",
         rst[[i]]$p_values <- r.p_values[i,]
         rst[[i]]$odds_ratios <- r.odds_ratios[i,]
         rst[[i]]$grp.cols <- r.grp.cols
+        rst[[i]]$grp.expr <- r.grp.expr
         rst[[i]]$has.intercept <- r.has.intercept
         rst[[i]]$ind.vars <- r.ind.vars
         rst[[i]]$ind.str <- r.ind.str
@@ -160,11 +167,34 @@ madlib.glm <- function (formula, data, family = "gaussian",
         rst[[i]]$dummy.expr <- r.dummy.expr
         rst[[i]]$model <- model
         rst[[i]]$terms <- params$terms
-        rst[[i]]$nobs <- nrow(data)
-        rst[[i]]$data <- origin.data
+        
+        if (length(r.grp.cols) != 0) {
+            ## cond <- Reduce(function(l, r) l & r,
+            cond <- .row.action(.combine.list(Map(function(x) {
+                if (is.na(rst[[i]][[r.grp.cols[x]]]))
+                    ## is.na(origin.data[,x])
+                    eval(parse(text = paste("with(origin.data, is.na(",
+                               r.grp.expr[x], "))", sep = "")))
+                else
+                    ## origin.data[,x] == rst[[i]][[x]]
+                    if (is.character(rst[[i]][[r.grp.cols[x]]]))
+                        use <- "\"" %+% rst[[i]][[r.grp.cols[x]]] %+% "\""
+                    else
+                        use <- rst[[i]][[r.grp.cols[x]]]
+                eval(parse(text = paste("with(origin.data, (",
+                           r.grp.expr[x], ") ==",
+                           use, ")", sep = "")))
+            }, seq_len(length(r.grp.expr)))), " and ")
+            rst[[i]]$data <- origin.data[cond,]
+        } else
+            rst[[i]]$data <- origin.data
+
+        rst[[i]]$origin.data <- origin.data
+        rst[[i]]$nobs <- nrow(rst[[i]]$data)
+        
         class(rst[[i]]) <- "logregr.madlib"
     }
-    
+
     class(rst) <- "logregr.madlib.grps" # use this to track summary
 
     if (n.grps == 1) return (rst[[1]])
@@ -192,14 +222,16 @@ print.logregr.madlib.grps <- function (x,
                                        ...)
 {
     n.grps <- length(x)
-    
+
     if (x[[1]]$has.intercept)
         rows <- c("(Intercept)", x[[1]]$ind.vars)
     else
         rows <- x[[1]]$ind.vars
+    rows <- gsub("\"", "", rows)
     for (i in seq_len(length(x[[1]]$col.name)))
         if (x[[1]]$col.name[i] != x[[1]]$appear[i])
             rows <- gsub(x[[1]]$col.name[i], x[[1]]$appear[i], rows)
+    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
@@ -213,8 +245,9 @@ print.logregr.madlib.grps <- function (x,
         if (length(x[[i]]$grp.cols) != 0)
         {
             cat("Group", i, "when\n")
-            for (col in x[[i]]$grp.cols)
-                cat(col, ": ", x[[i]][[col]], ",\n", sep = "")
+            for (col in seq_len(length(x[[i]]$grp.expr)))
+                cat(x[[i]]$grp.expr[col], ": ",
+                    x[[i]][[x[[i]]$grp.cols[col]]], "\n", sep = "")
             cat("\n")
         }
 
@@ -281,15 +314,17 @@ print.logregr.madlib <- function (x,
         rows <- c("(Intercept)", x$ind.vars)
     else
         rows <- x$ind.vars
+    rows <- gsub("\"", "", rows)
     for (i in seq_len(length(x$col.name)))
         if (x$col.name[i] != x$appear[i])
             rows <- gsub(x$col.name[i], x$appear[i], rows)
+    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
     cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
- 
+
     cat("\n---------------------------------------\n\n")
     if (length(x$grp.cols) != 0)
     {
@@ -297,13 +332,13 @@ print.logregr.madlib <- function (x,
             cat(col, ": ", x[[col]], ",\n", sep = "")
         cat("\n")
     }
-    
+
     cat("Coefficients:\n")
     coef <- format(x$coef, digits = digits)
     std.err <- format(x$std_err, digits = digits)
     z.stats <- format(x$z_stats, digits = digits)
     odds.ratios <- format(x$odds_ratios, digits = digits)
-    
+
     stars <- rep("", length(x$p_values))
     for (j in seq(length(x$p_values))) {
         if (is.na(x$p_values[j]) || is.nan(x$p_values[j])) {
@@ -321,7 +356,7 @@ print.logregr.madlib <- function (x,
         else
             stars[j] <- " "
     }
-    
+
     p.values <- paste(format(x$p_values, digits = digits),
                       stars)
     output <- data.frame(cbind(Estimate = coef,
@@ -331,13 +366,13 @@ print.logregr.madlib <- function (x,
                                `Odds ratio` = odds.ratios),
                          row.names = rows, check.names = FALSE)
     print(format(output, justify = "left"))
-    
+
     cat("---\n")
     cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n")
     cat("Log likelihood:", x$log_likelihood, "\n")
     cat("Condition Number:", x$condition_no, "\n")
     cat("Number of iterations:", x$num_iterations, "\n")
-    
+
     cat("\n")
 }
 
@@ -352,7 +387,7 @@ show.logregr.madlib <- function (object)
 ## -----------------------------------------------------------------------
 
 .madlib.mlogregr <- function (formula, data, na.action, method = "irls",
-                              max_iter = 10000, tolerance = 1e-5, call)
+                              max.iter = 10000, tolerance = 1e-5, call)
 {
     stop("To be implemented!")
 }

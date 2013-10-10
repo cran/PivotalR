@@ -44,7 +44,7 @@ setMethod (
         if (is(x, "db.data.frame")) {
             content <- paste("select * from ", content(x),
                              sort$str, sep = "")
-            expr <- names(x)
+            expr <- paste("\"", names(x), "\"", sep = "")
             src <- content(x)
             parent <- src
             where <- ""
@@ -69,6 +69,7 @@ setMethod (
             .where = where,
             .is.factor = x@.is.factor,
             .factor.suffix = x@.factor.suffix,
-            .sort = sort)
+            .sort = sort,
+            .dist.by = x@.dist.by)
     },
     valueClass = "db.Rquery")

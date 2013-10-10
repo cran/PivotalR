@@ -21,9 +21,17 @@
 ## -----------------------------------------------------------------------
 
 ## Analyze the formula and get each terms
-.get.params <- function (formula, data)
+.get.params <- function (formula, data, na.action = NULL)
 {
+    n <- ncol(data)
     params <- .analyze.formula(formula, data)
+
+    if (!is.null(na.action)) {
+        params$data <- na.action(params$data, vars =
+                                 with(params, c(origin.dep, grp.vars,
+                                                origin.ind,
+                                                names(data)[data@.is.factor])))
+    }
 
     ## create temp table for db.Rquery objects
     is.tbl.source.temp <- FALSE
@@ -33,7 +41,8 @@
         is.tbl.source.temp <- TRUE
         data <- as.db.data.frame(x = params$data,
                                  table.name = tbl.source,
-                                 is.temp = FALSE, verbose = FALSE)
+                                 is.temp = FALSE, verbose = FALSE,
+                                 distributed.by = params$data@.dist.by)
     }
 
     is.factor <- data@.is.factor
@@ -41,11 +50,13 @@
     
     params <- .analyze.formula(formula, data, params$data, refresh = TRUE,
                                is.factor = is.factor, cols = cols,
-                               suffix = data@.factor.suffix)
+                               suffix = data@.factor.suffix,
+                               grp.vars = params$grp.vars,
+                               grp.expr = params$grp.expr)
 
     list(data = data, params = params,
          is.tbl.source.temp = is.tbl.source.temp,
-         tbl.source = tbl.source)
+         tbl.source = tbl.source, is.factor = is.factor[seq(n)])
 }
 
 ## -----------------------------------------------------------------------
@@ -145,4 +156,49 @@ clean.madlib.temp <- function(conn.id = 1)
     for (tbl in db.objects("__madlib_temp_\\d+_\\d+_\\d+__",
                            conn.id=conn.id))
         delete(tbl, conn.id=conn.id)
+}
+
+## ----------------------------------------------------------------------
+
+## Compute the first-derivative of any functino analytically
+## And return the result as a string
+## Will be used in computing margins
+.parse.deriv <- function (expr.str, var)
+{
+    formula <- formula(paste("~", expr.str))
+    x <- deriv(formula, var)
+    lst0 <- deparse(x)
+    lst0 <- lst0[2:(length(lst0)-1)]
+    lst <- character(0)
+    for (i in 1:length(lst0)) {
+        if (grepl("value", lst0[i]) ||
+            grepl("array", lst0[i]) ||
+            grepl("attr", lst0[i])) next
+        if (grepl("<-", lst0[i])) {
+            lst <- c(lst, lst0[i])
+        } else {
+            if (i != 1)
+                lst[length(lst)] <- paste(lst[length(lst)], lst0[i])
+        }
+    }
+
+    env <- lapply(lst, function(x) eval(parse(
+        text = paste("quote(", strsplit(x, "\\s*<-\\s*")[[1]][2],
+        ")", sep = ""))))
+    names(env) <- sapply(lst, function(x)
+                         gsub("^\\s*", "",
+                              strsplit(x, "\\s*<-\\s*")[[1]][1]))
+    res <- ""
+    k <- which(names(env) == paste(".grad[, \"", var, "\"]",
+                    sep = ""))
+    
+    while (env[[k]] != res) {
+        res <- env[[k]]
+        for (i in 1:length(env))
+            env[[i]] <- eval(parse(text = paste("substitute(",
+                                   paste(deparse(env[[i]]),
+                                         collapse = " "),
+                                   ", env)", sep = "")))
+    }
+    gsub("\\s+", " ", paste(deparse(res), collapse = " "))
 }

@@ -87,9 +87,9 @@ db.array(x, ...)
 }
 
 \value{
-    For \code{mean}, a \code{db.Rquery} which is a SQL query to extract the average of a column of a table.
+    For \code{mean}, a \code{db.Rquery} which is a SQL query to extract the average of a column of a table.  Actually, it can work on multiple columns, so it is the same as \code{colMeans}.
 
-    For \code{sum}, a \code{db.Rquery} which is a SQL query to extract the sum of a column of a table.
+    For \code{sum}, a \code{db.Rquery} which is a SQL query to extract the sum of a column of a table. Actually, it can work on multiple columns, so it is the same as \code{colSums}.
 
     For \code{count}, a \code{db.Rquery} which is a SQL query to extract the count of a column of a table.
 
@@ -113,10 +113,9 @@ db.array(x, ...)
 }
 
 \author{
-  Author: Predictive Analytics Team at Pivotal Inc. \email{user@madlib.net}
+  Author: Predictive Analytics Team at Pivotal Inc.
 
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}
+  Maintainer: Hai Qian \email{hqian@gopivotal.com}
 }
 
 \seealso{

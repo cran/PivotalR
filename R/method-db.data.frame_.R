@@ -6,15 +6,12 @@
 db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
                            is.temp = FALSE)
 {
+    if (! .is.arg.string(x))
+        stop("The name of the database object must be a string!")
     if (!.is.conn.id.valid(conn.id))
         stop("Connection ID ", conn.id, " is not valid!")
     warnings <- .suppress.warnings(conn.id)
     
-    if (! .is.arg.string(x))
-        stop("The name of the database object must be a string!")
-    if (! .is.conn.id.valid(conn.id))
-        stop("There is no such a connection to any database!")
-
     tbn <- strsplit(x, "\\.")[[1]]
     x <- paste("\"", .strip(tbn, "\""),
                "\"", collapse = ".", sep = "")
@@ -43,16 +40,30 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
                    .name = table,
                    .content = content,
                    .conn.id = conn.id,
-                   .key = character(0))
+                   .key = character(0),
+                   .dist.by = character(0))
     }
     else
     {
+        dbms <- (.get.dbms.str(conn.id))$db.str
+        if (dbms != "PostgreSQL") {
+            dist.cols <- .get.dist.policy(table, conn.id)
+            if (is.na(dist.cols)) {
+                dist.by <- character(0) # distributed randomly
+            } else {
+                dist.by <- paste(dist.cols, collapse = ", ")
+            }
+        } else {
+            dist.str <- ""
+            dist.by <- ""
+        }
         ## table
         res <- new("db.table",
                    .name = table,
                    .content = content,
                    .conn.id = conn.id,
-                   .key = key)
+                   .key = key,
+                   .dist.by = dist.by)
     }
 
     col.info <- .db.getQuery(
@@ -60,6 +71,9 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
               .db.table.schema.str(table, conn.id), " order by ordinal_position", sep = ""), conn.id)
 
     res@.col.name <- col.info$column_name
+    if (!identical(res@.key, character(0)) &&
+        (! res@.key %in% res@.col.name))
+        stop("The key column does not exist!")
     res@.col.data_type <- tolower(col.info$data_type)
     res@.col.udt_name <- tolower(col.info$udt_name)
 

@@ -336,6 +336,16 @@ db.existsObject <- function (name, conn.id = 1, is.temp = FALSE)
 
 ## ----------------------------------------------------------------------
 
+.db.clearResult <- function(res)
+{
+    id <- .localVars$conn.id[.localVars$conn.id[,1] == res[[2]], 2]
+    command <- paste(".db.clearResult.", .localVars$db[[id]]$conn.pkg,
+                     "(res$res)", sep = "")
+    eval(parse(text = command))
+}
+
+## ----------------------------------------------------------------------
+
 .db.getQuery <- function (query, conn.id = 1)
 {
     id <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id, 2]
@@ -358,12 +368,13 @@ db.existsObject <- function (name, conn.id = 1, is.temp = FALSE)
 
 .db.existsTable <- function (table, conn.id = 1)
 {
-    id <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id, 2]
+    ## id <- .localVars$conn.id[.localVars$conn.id[,1] == conn.id, 2]
     ## command <- paste(".db.existsTable.", .localVars$db[[id]]$conn.pkg,
     ##                  "(table=table, idx=id)", sep = "")
     ## eval(parse(text = command))
     if (length(table) == 1) {
-        schema.str <- ""
+        schema.str <- try(.db.table.schema.str(table, conn.id), silent = TRUE)
+        if (is(schema.str, .err.class)) return (FALSE)
         tbl.name <- table
     } else {
         schema.str <- paste(" and table_schema = '", table[1], "'", sep = "")

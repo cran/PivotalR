@@ -20,9 +20,13 @@ setMethod (
 
         warnings <- .suppress.warnings(conn.id)
 
-        all.names <- names(.expand.array(x))
+        ## all.names <- names(.expand.array(x))
+        all.names <- names(x)
         lg <- length(all.names)
-        y <- db.array(x)
+        if (length(names(x)) == 1 && x@.col.data_type == "array")
+            y <- x[[names(x)]]
+        else
+            y <- db.array(x)
         names(y) <- "vec"
         col.dim <- length(strsplit(y@.expr, ",")[[1]])
         

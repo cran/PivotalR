@@ -1,4 +1,5 @@
 \name{preview}
+\alias{lk}
 \alias{lookat}
 \alias{preview}
 \alias{preview,character-method}
@@ -14,12 +15,12 @@
   Read the actual data stored in a table of database.
 }
 \description{
-  These functions read the actual data from a database table or operation, returning a \code{\link{data.frame}} or other object as appropriate.
-  \code{lookat} is actually the same as \code{preview} with
-  \code{interactive} always being \code{FALSE}.
+  These functions read the actual data from a database table or operation, returning a \code{\link{data.frame}} or other object as appropriate. \code{lookat} and \code{lk} are actually the same as \code{preview} with \code{interactive} always being \code{FALSE}.
 }
 
 \usage{
+preview(x, ..., drop = TRUE)
+
 \S4method{preview}{db.table}(x, nrows = 100, array = TRUE)
 
 \S4method{preview}{db.view}(x, nrows = 100, interactive = FALSE,
@@ -32,11 +33,13 @@ array = TRUE)
 
 \S4method{preview}{character}(x, conn.id = 1, nrows = 100, array = TRUE)
 
-lookat(x, nrows = 100, array = TRUE, conn.id = 1)
+lookat(x, nrows = 100, array = TRUE, conn.id = 1, drop = TRUE)
+
+lk(x, nrows = 100, array = TRUE, conn.id = 1, drop = TRUE)
 
 \method{as.data.frame}{db.table}(x, row.names = NULL, optional = FALSE,
-     nrows = NULL, stringsAsFactors = default.stringsAsFactors(), array =
-     TRUE, ...)
+     nrows = NULL, stringsAsFactors = default.stringsAsFactors(), array
+     = TRUE, ...)
 
 \method{as.data.frame}{db.view}(x,row.names=NULL, optional=FALSE, nrows
     = NULL, stringsAsFactors = default.stringsAsFactors(), array = TRUE,
@@ -65,7 +68,7 @@ lookat(x, nrows = 100, array = TRUE, conn.id = 1)
 
   \item{nrows}{
     An integer, how many rows of data to retrieve. If it is
-  \code{NULL} or \code{"all"}, then all data in the table will be send
+  \code{NULL} or \code{"all"} or a non-positive value, then all data in the table will be send
   into R. Be careful, you do not want to do this if the data table is
   very large.
   }
@@ -86,6 +89,8 @@ lookat(x, nrows = 100, array = TRUE, conn.id = 1)
   \item{stringsAsFactors}{
     Logical, whether character variables should be converted to factors.
   }
+  \item{drop}{Whether to coerce single-column tables to a vector of the
+    appropriate class.}
   \item{row.names,optional,...}{
     For compatibility with the \code{as.data.frame} generic; not used.
   }
@@ -107,27 +112,25 @@ When \code{x} is a \code{\linkS4class{db.data.frame}} object, this
   matrices in \code{x}, a list is returned and each element of the list
   is a matrix.
 
-  The \code{as.data.frame} method calls \code{lookat} with \code{nrows = NULL} to perform the conversion to a data frame.
+  The \code{as.data.frame} method calls \code{lookat} with \code{nrows = NULL} to perform the conversion to a data frame. In this case \code{drop} is set to \code{FALSE}, ie the result will always be a data frame.
 }
 
 \value{
   For \code{db.data.frame} and \code{db.Rquery} objects, a data frame. Each column in the table becomes a column
   of the returned \code{data.frame}. A column of arrays is converted into
   a column of strings, see \code{\link{arraydb.to.arrayr}} for more
-  details. 
+  details. Single-column tables created with \code{preview}, \code{lookat} or \code{lk} will be coerced to a vector if \code{drop == TRUE}.
   
   For \code{db.Rcrossprod} objects, a matrix or list of matrix objects as appropriate (see above).
 }
 
 \author{
-  Author: Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}
+  Author: Predictive Analytics Team at Pivotal Inc.
 
   Hong Ooi, Pivotal Inc. \email{hooi@gopivotal.com} wrote the
   \code{as.data.frame} methods.
   
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}
+  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
 }
 
 \seealso{

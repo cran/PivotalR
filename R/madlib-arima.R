@@ -25,18 +25,20 @@ setMethod (
     optim.method = "LM",
     optim.control = list(), ...)
 {
+    method <- match.arg(method)
+    optim.method <- match.arg(optim.method)
     if (length(names(x)) != 1 || length(names(ts)) != 1)
         stop("ARIMA can only have one time stamp column and ",
              "one time series value column !")
     
-    data <- cbind(x, ts)
+    data <- cbind2(x, ts)
     f.str <- paste(names(x), "~", names(ts))
 
     ## grouping is a list of db.Rquery
     if (!is.null(by)) {
         grp.names <- character(0)
         for (i in seq_len(length(by))) {
-            data <- cbind(data, by[[i]])
+            data <- cbind2(data, by[[i]])
             grp.names <- c(grp.names, names(by[[i]]))
         }
         f.str <- paste(f.str, "|", paste(grp.names, collapse = "+"))
@@ -118,7 +120,8 @@ setMethod (
     data <- analyzer$data
     params <- analyzer$params
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
-    tbl.source <- gsub("\"", "", content(data))
+    ## tbl.source <- gsub("\"", "", content(data))
+    tbl.source <- content(data)
     
     if (length(params$ind.vars) != 1)
         stop("Only one time stamp is allowed !")

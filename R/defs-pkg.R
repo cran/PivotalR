@@ -62,7 +62,8 @@ setClass("db.data.frame",
              .appear.name = "character",
              .dummy = "character",
              .dummy.expr = "character",
-             .is.factor = "logical"
+             .is.factor = "logical",
+             .dist.by = "character"
              )
          )
 
@@ -108,7 +109,8 @@ setClass("db.Rquery",
              .is.factor = "logical", # a boolean vector
              .factor.suffix = "character",
              .sort = "list", # order by
-             .is.agg = "logical" # is this an aggrgate?
+             .is.agg = "logical", # is this an aggrgate?
+             .dist.by = "character"
              ),
          prototype = list(.is.agg = FALSE)
          )
@@ -120,8 +122,31 @@ setClass("db.Rcrossprod",
          representation(
              .is.crossprod = "logical", # is the column a crossprod
              .is.symmetric = "logical", # is the column crossprod symmetric
-             .dim = "numeric"), # 
+             .dim = "numeric"),
+         ## .inverse = "logical"),
+         ## prototype = list(.inverse = FALSE),
          contains = "db.Rquery")
+
+## ----------------------------------------------------------------------
+
+## A db.Rquery, but is treated as a view
+setClass("db.Rview",
+         contains = "db.Rquery")
+
+## Convert a db.Rquery object to db.Rview object
+as.db.Rview <- function (x) {
+    if (!is(x, "db.Rquery"))
+        stop(deparse(substitute(x)), " must be a db.Rquery object!")
+    w <- as(x, "db.Rview")
+    w@.parent <- x@.content
+    w@.expr <- "\"" %+% w@.col.name %+% "\""
+    w@.content <- paste("select ",
+                        paste(w@.expr, "as", w@.col.name, collapse = ", "),
+                        " from (", w@.parent, ") s", sep = "")
+    w@.where <- ""
+    w@.sort <- list(by = "", order = "", str = "")
+    w
+}
 
 ## -----------------------------------------------------------------------
 

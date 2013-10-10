@@ -31,6 +31,12 @@
 \alias{!=,db.obj,db.obj-method}
 \alias{!=,db.obj,numeric-method}
 \alias{!=,numeric,db.obj-method}
+\alias{==,db.obj,logical-method}
+\alias{==,logical,db.obj-method}
+\alias{!=,db.obj,logical-method}
+\alias{!=,logical,db.obj-method}
+\alias{grepl}
+\alias{grepl,character,db.obj-method}
 
 \title{Comparison Operators for \code{\linkS4class{db.obj}} objects}
 
@@ -70,12 +76,45 @@
 \S4method{<=}{db.obj,numeric}(e1, e2)
 \S4method{==}{db.obj,numeric}(e1, e2)
 \S4method{!=}{db.obj,numeric}(e1, e2)
+\S4method{==}{db.obj,logical}(e1, e2)
+\S4method{==}{logical,db.obj}(e1, e2)
+\S4method{!=}{db.obj,logical}(e1, e2)
+\S4method{!=}{logical,db.obj}(e1, e2)
+\S4method{grepl}{character,db.obj}(pattern, x, ignore.case = FALSE, perl = FALSE, fixed = FALSE, useBytes = FALSE)
 }
 
 \arguments{
   \item{e1, e2}{
     numeric, character or \code{\linkS4class{db.obj}} object.
   }
+
+\item{pattern}{
+character string containing a regular expression (or
+          character string for 'fixed = TRUE') to be matched in the
+          given character vector. 
+}
+
+\item{x}{
+A \code{\linkS4class{db.obj}} object.
+}
+
+\item{ignore.case}{
+if 'FALSE', the pattern matching is _case sensitive_ and
+          if 'TRUE', case is ignored during matching.
+}
+
+\item{perl}{
+logical.  Should perl-compatible regexps be used? Not implemented yet.
+}
+
+\item{fixed}{
+logical.  If 'TRUE', 'pattern' is a string to be matched as
+          is.  Overrides all conflicting arguments.
+}
+
+\item{useBytes}{
+logical. Not implemented yet.
+}
 }
 
 \value{
@@ -84,10 +123,9 @@
 }
 
 \author{
-  Author: Predictive Analytics Team at Pivotal Inc. \email{user@madlib.net}
+  Author: Predictive Analytics Team at Pivotal Inc.
   
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}
+  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
 }
 
 \note{

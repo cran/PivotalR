@@ -1,4 +1,5 @@
 # exportPattern("^[^\\.]")
+useDynLib(PivotalR)
 
 export("db.connect", "db.disconnect", "db.list")
 
@@ -8,7 +9,10 @@ export ("conn.pkg", "host", "dbname", "user", "dbms",
 export ("db.data.frame", "as.db.data.frame")
 
 exportClasses ("db.obj", "db.Rquery", "db.data.frame",
-               "db.table", "db.view", "db.Rcrossprod")
+               "db.table", "db.view", "db.Rcrossprod",
+               "db.Rview")
+
+export("as.db.Rview")
 
 exportMethods ("dim", "names", "names<-")
 
@@ -18,8 +22,8 @@ exportMethods ("print", "show")
 
 export ("is.db.data.frame", "arraydb.to.arrayr")
 
-export ("madlib.lm", "summary.lm.madlib", 
-        "print.lm.madlib", "show.lm.madlib", "summary.lm.madlib.grps", 
+export ("madlib.lm", "summary.lm.madlib",
+        "print.lm.madlib", "show.lm.madlib", "summary.lm.madlib.grps",
         "print.lm.madlib.grps", "show.lm.madlib.grps")
 
 export ("madlib.glm", "summary.logregr.madlib",
@@ -106,4 +110,38 @@ S3method(as.data.frame, db.Rquery)
 
 S3method(as.environment, db.obj)
 S3method(with, db.obj)
+
+S3method(coef, logregr.madlib)
+S3method(coef, logregr.madlib.grps)
+S3method(coef, lm.madlib)
+S3method(coef, lm.madlib.grps)
+
+exportMethods("as.integer", "as.character",
+              "as.logical", "as.numeric", "as.Date")
+
+export("as.double", "as.time", "as.timestamp", "as.interval", "db.date.style")
+
+export("lk", "col.types")
+
+export("madlib.elnet", "summary.elnet.madlib",
+       "print.elnet.madlib", "predict.elnet.madlib")
+
+exportMethods("sin", "cos", "tan", "asin", "acos", "atan",
+              "atan2")
+
+export("grepl")
+
+exportMethods("as.list")
+
+export("array.len")
+
+exportMethods("na.omit")
+
+export("db.q")
+
+export("vcov.lm.madlib", "vcov.lm.madlib.grps",
+       "vcov.logregr.madlib.grps", "vcov.logregr.madlib")
+
+exportMethods("ifelse", "rowSums", "rowMeans")
+
 

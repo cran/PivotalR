@@ -217,6 +217,18 @@ setMethod (
         list(res = all(unlist(res)), conn.id = conn.id)
     })
 
+## ----------------------------------------------------------------------
 
-
-
+setMethod (
+    "delete",
+    signature (x = "elnet.madlib"),
+    def = function (x) {
+        if (is(x$model, "db.obj")) {
+            conn.id <- conn.id(x$model)
+            d1 <- delete(x$model)
+        } else {
+            conn.id <- NA
+            d1 <- TRUE
+        }
+        list(res = d1, conn.id = conn.id)
+    })

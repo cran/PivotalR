@@ -17,7 +17,8 @@
 }
 
 \usage{
-    madlib.glm(formula, data, family = "gaussian", na.action, control = list(), ...)
+madlib.glm(formula, data, family = c("gaussian", "linear", "binomial",
+"logistic"), na.action = NULL, control = list(), ...)
 }
 
 \arguments{
@@ -47,10 +48,10 @@
 
     \item{na.action}{
         A string which indicates what should happen when the data
-        contain \code{NA}s.  Future possible
-        values include \code{"na.omit"}, \code{"na.exclude"},
-        \code{"na.fail"} 
-        and \code{NULL}. Currently not implemented yet.
+        contain \code{NA}s. Possible
+        values include \code{\link{na.omit}}, \code{"na.exclude"},
+        \code{"na.fail"}
+        and \code{NULL}. Right now, \code{\link{na.omit}} has been implemented. When the value is \code{NULL}, nothing is done on the R side and \code{NA} values are filtered on the MADlib side. User defined \code{na.action} function is allowed.
     }
 
     \item{control}{
@@ -61,17 +62,17 @@
         \code{hetero}. A logical, deafult is \code{FALSE}. If it is
   \code{TRUE}, then Breusch-Pagan test is performed on the fitting model
   and the corresponding test statistic and p-value are computed.
-        
+
         For logistic regression, one can pass the following
         extra parameters:
 
         \code{method}: A string, default is \code{"irls"} (iteratively
         reweighted least squares [3]), other choices
-        are \code{"cgd"} (conjugate gradient descent algorithm [4]) and \code{"igd"}
+        are \code{"cg"} (conjugate gradient descent algorithm [4]) and \code{"igd"}
         (stochastic gradient descent algorithm [5]). The algorithm names for
         logistic regression.
 
-        \code{max_iter}: An integer, default is 10000. The maximum
+        \code{max.iter}: An integer, default is 10000. The maximum
         number of iterations that the algorithms will run.
 
         \code{tolerance}: A numeric value, default is 1e-5. The stopping
@@ -96,10 +97,10 @@
   For the logistic regression, the returned value is similar to that of
   the linear regression.  If there is no grouping (i.e. no \code{|} in the formula), the result
   is a \code{logregr.madlib} object. Otherwise, it is a
-  \code{logregr.madlib.grps} 
+  \code{logregr.madlib.grps}
   object, which is just a list of \code{logregr.madlib} objects.
 
-  A \code{logregr.madlib} object 
+  A \code{logregr.madlib} object
   a list which contains the following items:
 
   \item{grouping column(s)}{
@@ -132,8 +133,8 @@
 
   \item{z_stats}{
     A numeric matrix, the z-statistics for each coefficient. Each row is
-    for a 
-    fitting to a group of the data. 
+    for a
+    fitting to a group of the data.
   }
 
   \item{p_values}{
@@ -144,7 +145,7 @@
   \item{odds_ratios}{
     A numeric array, the odds ratios [6] for the fittings for all groups.
   }
-  
+
   \item{condition_no}{
       A numeric array, the condition number for all combinations of the
     grouping column values.
@@ -190,34 +191,51 @@
     we are dealing with the factor variables, where the dummy variable
     names can be very long due to the inserting of a random string to
     avoid naming conflicts, see \code{\link{as.factor,db.obj-method}}
-    for details.
+    for details. The list also contains \code{dummy} and \code{dummy.expr}, which are also used for processing the categorial variables, but do not contain any important information.
   }
 
   \item{model}{
     A \code{\linkS4class{db.data.frame}} object, which wraps the result
     table of this function.
   }
-  
+
   \item{terms}{
     A \code{\link{terms}} object, describing the terms in the model formula.
   }
-  
+
   \item{nobs}{
     The number of observations used to fit the model.
   }
 
-  \item{data}{The original \code{db.obj} object, which wraps all the
-  data used in the database.}
+  \item{data}{A \code{db.obj} object, which wraps all the
+    data used in the database. If there are fittings for multiple groups,   then this is only the wrapper for the data in one group.}
+
+  \item{origin.data}{
+  The original \code{db.obj} object. When there is no grouping, it is equal to \code{data} above, otherwise it is the "sum" of \code{data} from all groups.
+}
 
   Note that if there is grouping done, and there are multiple
   \code{logregr.madlib} objects in the final result, each one of them
   contains the same copy \code{model}.
 }
 
+\author{
+  Author: Predictive Analytics Team at Pivotal Inc.
+
+  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
+}
+
+\note{
+  See \code{\link{madlib.lm}}'s note for more about the formula format.
+
+  For logistic regression, the dependent variable MUST be a logical
+  variable with values being \code{TRUE} or \code{FALSE}.
+}
+
 \references{
     [1] Documentation of linear regression in MADlib v0.6,
     \url{http://doc.madlib.net/v0.6/group__grp__linreg.html}
-    
+
     [2] Documentation of logistic regression in MADlib v0.6,
     \url{http://doc.madlib.net/v0.6/group__grp__logreg.html}
 
@@ -231,21 +249,7 @@
     \url{http://en.wikipedia.org/wiki/Stochastic_gradient_descent}
 
     [6] Wikipedia: Odds ratio,
-    \url{http://en.wikipedia.org/wiki/Odds_ratio} 
-}
-
-\author{
-  Author: Predictive Analytics Team at Pivotal Inc. \email{user@madlib.net}
-
-  Maintainer: Hai Qian \email{hqian@gopivotal.com}, Predictive Analytics Team at Pivotal
-  Inc. \email{user@madlib.net}, Hai Qian \email{hai.qian@gopivotal.com}
-}
-
-\note{
-  See \code{\link{madlib.lm}}'s note for more about the formula format.
-
-  For logistic regression, the dependent variable MUST be a logical
-  variable with values being \code{TRUE} or \code{FALSE}.
+    \url{http://en.wikipedia.org/wiki/Odds_ratio}
 }
 
 \seealso{
@@ -286,12 +290,19 @@ array.data <- db.data.frame("tbl_has_array_column")
 
 ## Fit to y using every element of x
 ## This does not work in R's lm, but works in madlib.lm
-fit <- madlib.lm(y < 10 ~ x, data = array.data)
-    }
+fit <- madlib.glm(y < 10 ~ x, data = array.data, family = "binomial")
+
+fit <- madlib.glm(y < 10 ~ x - x[1:2], data = array.data, family = "binomial")
+
+## 4th example
+## Step-wise feature selection
+dat <- as.db.data.frame(abalone, "abalone")
+start <- madlib.glm(rings < 10 ~ . - id - sex, data = dat, family = "binomial")
+step(start)
+}
 }
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
 \keyword{madlib}
 \keyword{stats}
-
