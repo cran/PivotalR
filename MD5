@@ -1,4 +1,4 @@
-57472b5cf40de60024fd0d47a70fece3 *DESCRIPTION
+fd33a592c638734e9427f66a1878ec2a *DESCRIPTION
 52b8700fbf34f5bf74e9d5a3db9684ce *NAMESPACE
 d4b2be685f8f26cf82fff4e85437d4a8 *R/PivotalR.R
 1ae3b657fa760957e78bd44100f372f8 *R/aic_lm.R
@@ -125,7 +125,7 @@ a4e8fec0cb1c014f7ce227d6cba3f22f *man/na.action.Rd
 7ebb1ed935e24e85356ccd5ab080a6f9 *man/names-methods.Rd
 b65c752a9ae87a0411a4d3d93be7573a *man/null.data.Rd
 a4ca729288adc34361309339514ef7e2 *man/pivotalr.Rd
-833e8accf48617cb83fdf770d8b07da7 *man/pkg-package.Rd
+dcd232cdba0aed01b7228240b2869e51 *man/pkg-package.Rd
 227c5778a11daa6e81ad005af019ee32 *man/predict.Rd
 033de164fd7a85843fec38c6b8a37327 *man/predict.arima.madlib.Rd
 3491600ed53b079f64dcf9163afa122b *man/predict.bagging.model.Rd
@@ -151,12 +151,12 @@ c7c422036c5ea535094eb24854f20fba *man/summary.logregr.madlib.Rd
 cac32c149877b99afa1e64979960f3b2 *man/type-cast.Rd
 63808dca6159b86c2eb80c32578522c3 *man/unique-methods.Rd
 929ed7755b14501c7600fcc9eace1bf3 *man/vcov.Rd
-1c1cea3c52040b9533168aa49ecfdee4 *src/Makevars
+473939f032153bc2b4069f0e9f3b6e5b *src/Makevars
 6853799ed27bcb64df90103851b6ed7d *src/adp/Makefile
 9c5cc981f403553f04fed477e6a43508 *src/adp/README
-144f3fc1b12792224dea84d614fa75ef *src/adp/rlist.h
-293a8ebc241e9742a4b726a519b218cf *src/adp/rmatrix.h
-feca019375b74c0b9edf0f551be21596 *src/adp/rmix_list.cpp
+753f2ed86de75a172af0d044d83570a0 *src/adp/rlist.h
+0403962256c17ee4c9e3d4f5fb0ad584 *src/adp/rmatrix.h
+398e02cb9730436563d18748b611e46f *src/adp/rmix_list.cpp
 927b7aaecfb4afc50d7b774fcdb0b01b *src/adp/rmix_list.h
-5eb23cd767162f6241f88f2dda62c73e *src/adp/rvector.h
+8499326d1ddb868ef2f449c7fdf24aec *src/adp/rvector.h
 510ff055337a63a6d2d9104757832037 *src/elcd.cpp
