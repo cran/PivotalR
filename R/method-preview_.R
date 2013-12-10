@@ -7,7 +7,7 @@ setGeneric (
     "preview",
     def = function (x, ..., drop=TRUE) {
         res <- standardGeneric("preview")
-        if (drop && ncol(res) == 1)
+        if (!is.null(ncol(res)) && drop && ncol(res) == 1)
             return (res[, , drop=TRUE])
         res
     },
@@ -32,7 +32,7 @@ setGeneric (
 setMethod (
     "preview",
     signature (x = "db.table"),
-    def = function (x, nrows = 100, array = TRUE) {
+    def = function (x, nrows = 100, array = TRUE, drop = TRUE) {
         ## warn.r <- getOption("warn")
         ## options(warn = -1)
         ## if (array) {
@@ -50,7 +50,7 @@ setMethod (
             z <- x[[names(x)]]
         else
             z <- x[,]
-        lk(z, nrows=nrows, array=array)
+        lk(z, nrows=nrows, array=array, drop = drop)
     })
 
 ## -----------------------------------------------------------------------
@@ -58,7 +58,8 @@ setMethod (
 setMethod (
     "preview",
     signature (x = "db.view"),
-    def = function (x, nrows = 100, interactive = FALSE, array = TRUE) {
+    def = function (x, nrows = 100, interactive = FALSE, array = TRUE,
+    drop = TRUE) {
         ## warn.r <- getOption("warn")
         ## options(warn = -1)
         if (interactive) {
@@ -86,7 +87,7 @@ setMethod (
             z <- x[[names(x)]]
         else
             z <- x[,]
-        lk(z, nrows=nrows, array=array)
+        lk(z, nrows=nrows, array=array, drop = drop)
     })
 
 ## -----------------------------------------------------------------------
@@ -94,7 +95,8 @@ setMethod (
 setMethod (
     "preview",
     signature (x = "db.Rquery"),
-    def = function (x, nrows = 100, interactive = FALSE, array = TRUE) {
+    def = function (x, nrows = 100, interactive = FALSE, array = TRUE,
+    drop = TRUE) {
         warnings <- .suppress.warnings(conn.id(x))
 
         ## add.crossprod <- FALSE
@@ -127,8 +129,10 @@ setMethod (
 
         ## if (array) x <- .expand.array(x)
 
-        res <- .db.getQuery(paste(content(x), .limit.str(nrows),
-                                  sep = ""), conn.id(x))
+        ## res <- .db.getQuery(paste(content(x), .limit.str(nrows),
+        ##                           sep = ""), conn.id(x))
+        res <- db.q(content(x), .limit.str(nrows), conn.id = conn.id(x),
+                    verbose = FALSE, sep = "", nrows = -1)
 
         .restore.warnings(warnings)
         for (i in seq_len(length(names(x)))) {
@@ -159,7 +163,7 @@ setMethod (
 setMethod (
     "preview",
     signature (x = "db.Rcrossprod"),
-    def = function (x, nrows = 100, interactive = FALSE) {
+    def = function (x, nrows = 100, interactive = FALSE, drop = TRUE) {
         warnings <- .suppress.warnings(conn.id(x))
 
         if (interactive) {
@@ -176,10 +180,15 @@ setMethod (
         ## more than 1500. So we have to use unnest to help to load a large array
         ## TODO: Create a separate array loading function to specifically deal
         ## with such situations and can be called by other functions.
-        res <- .db.getQuery(paste("select unnest(\"", names(x)[1],
-                                  "\") as v from (",
-                                  content(x),
-                                  .limit.str(nrows), ") s", sep = ""), conn.id(x))
+        ## res <- .db.getQuery(paste("select unnest(\"", names(x)[1],
+        ##                           "\") as v from (",
+        ##                           content(x),
+        ##                           .limit.str(nrows), ") s", sep = ""), conn.id(x))
+        res <- db.q("select unnest(\"", names(x)[1],
+                    "\") as v from (",
+                    content(x),
+                    .limit.str(nrows), ") s", sep = "",
+                    conn.id = conn.id(x), verbose = FALSE, nrows = -1)
 
         n <- dim(x)[1]
         dims <- x@.dim
@@ -218,9 +227,10 @@ setMethod (
 setMethod (
     "preview",
     signature (x = "character"),
-    def = function (x, conn.id = 1, nrows = 100, array = TRUE) {
+    def = function (x, conn.id = 1, nrows = 100, array = TRUE,
+    drop = TRUE) {
         x <- db.data.frame(x, conn.id=conn.id, verbose = FALSE)
-        lookat(x, nrows=nrows, array=array)
+        lookat(x, nrows=nrows, array=array, drop=drop)
     })
 
 

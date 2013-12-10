@@ -76,8 +76,12 @@ NOT recommended to directly manipulate the internal slots of these objects.
       dummy columns to avoid naming conflicts. So a factor column's
       \code{.factor.suffix} is a random string, otherwise it is just an
       empty string. This is not to be used by the normal users. It is
-      used only the MADlib wrapper functions that support categorial
+      used only the MADlib wrapper functions that support categorical
       variables. 
+    }
+
+    \item{\code{.factor.ref}:}{
+      The value of the factor reference level for the regressions. If it is \code{NA}, then the regressions automatically select a reference level.
     }
 
     \item{\code{.appear.name}:}{Object of class \code{"character"}. This

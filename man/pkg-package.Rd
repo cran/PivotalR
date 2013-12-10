@@ -22,7 +22,7 @@ available at \url{http://zimmeee.github.io/gp-r/#pivotalr}.
 \tabular{ll}{
 Package: \tab PivotalR\cr
 Type: \tab Package\cr
-Version: \tab 0.1.8\cr
+Version: \tab 0.1.9\cr
 Date: \tab 2013-12-10\cr
 License: \tab GPL (>= 2)\cr
 Depends: \tab methods, DBI, RPostgreSQL\cr
@@ -181,7 +181,7 @@ random.sample <- preview(sort(ap, FALSE, "random"), 1000) # sort randomly
 
 plot(random.sample) # plot a random sample
 
-## fit a single model to all data treating sex as a categorial variable ---------
+## fit a single model to all data treating sex as a categorical variable ---------
 y <- x # make a copy, y is now a db.data.frame object
 y$sex <- as.factor(y$sex) # y becomes a db.Rquery object now
 fit2 <- madlib.lm(rings ~ . - id, data = y)
@@ -200,7 +200,7 @@ fit3 # view the result
 ## the percentage of correct prediction
 lookat(mean((x$rings < 10) == predict(fit3, x)))
 
-## fit a single model to all data treating sex as a categorial variable ----------
+## fit a single model to all data treating sex as a categorical variable ----------
 y <- x # make a copy, y is now a db.data.frame object
 y$sex <- as.factor(y$sex) # y becomes a db.Rquery object now
 fit4 <- madlib.glm(rings < 10 ~ . - id, data = y, family = "binomial")

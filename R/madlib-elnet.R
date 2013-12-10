@@ -96,7 +96,10 @@ madlib.elnet <- function (formula, data,
                  control$control.str, "', NULL, ", control$max.iter, ", ",
                  control$tolerance, ")", sep = "")
 
-    res <- .get.res(sql, tbl.output, conn.id)
+    ## res <- .get.res(sql, tbl.output, conn.id)
+    res <- db.q(sql, conn.id=conn.id, verbose = FALSE)
+    res <- db.q("select * from", tbl.output, conn.id=conn.id, verbose=FALSE,
+                sep = " ", nrows = -1)
     model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
 
     if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
@@ -107,13 +110,16 @@ madlib.elnet <- function (formula, data,
     rst$coef <- as.vector(arraydb.to.arrayr(res$coef_all, "double"))
 
     rows <- gsub("\"", "", params$ind.vars)
+    rows <- gsub("::[\\w\\s]+", "", rows, perl = T)
     rst$ind.vars <- params$ind.vars
     col.name <- gsub("\"", "", data@.col.name)
     appear <- data@.appear.name
     for (i in seq_len(length(col.name)))
         if (col.name[i] != appear[i])
             rows <- gsub(col.name[i], appear[i], rows)
-    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- .reverse.consistent.func(rows)
+    rows <- gsub("\\s", "", rows)
     names(rst$coef) <- rows
 
     rst$intercept <- res$intercept
@@ -133,6 +139,7 @@ madlib.elnet <- function (formula, data,
     rst$ind.str <- params$ind.str
     rst$dummy <- data@.dummy
     rst$dummy.expr <- data@.dummy.expr
+    rst$col.name <- gsub("\"", "", data@.col.name)
     rst$appear <- appear
     rst$terms <- params$terms
     rst$model <- model
@@ -141,6 +148,9 @@ madlib.elnet <- function (formula, data,
     rst$lambda <- lambda
     rst$method <- method
     rst$family <- family
+    rst$max.iter <- control$max.iter
+    rst$tolerance <- control$tolerance
+    rst$factor.ref <- data$factor.ref
     class(rst) <- "elnet.madlib"
     rst
 }
@@ -190,7 +200,7 @@ madlib.elnet <- function (formula, data,
         stop("Some of the control parameters are not supported!")
 
     ## max_iter and tolerance are not in SQL's optimizer_params
-    max.iter <- 10000
+    max.iter <- 100
     tolerance <- 1e-4
     if ("max.iter" %in% names(control)) {
         max.iter <- control$max.iter
@@ -258,6 +268,7 @@ print.elnet.madlib <- function (x,
     cat("\nThe independent variables are", std.str,
         " standardized.\n", sep = "")
     cat("The log-likelihood is", format(x$loglik, digits = digits))
+
     if (x$method != "cd")
         cat("\nThe computation is done with", x$iter, "iterations.\n\n")
     else if (x$family == "gaussian")
@@ -267,6 +278,12 @@ print.elnet.madlib <- function (x,
         cat("\nThe computation is done with", x$iter[1],
             "iterations in database and", x$iter[2],
             "iterations in memory.\n\n")
+
+    if (x$iter >= x$max.iter)
+        cat("The computation may not have converged with max.iter = ",
+            x$max.iter, " and tolerance = ", x$tolerance,
+            ". Use a larger max.iter or ",
+            "tolerance in the control parameters.\n\n", sep = "")
 }
 
 ## ----------------------------------------------------------------------
@@ -302,9 +319,14 @@ predict.elnet.madlib <- function (object, newdata,
     }
 
     if (!is(newdata, "db.data.frame"))
-        ind.str <- .replace.col.with.expr(object$ind.str,
-                                          names(newdata),
-                                          newdata@.expr)
+        ## ind.str <- .replace.col.with.expr(object$ind.str,
+        ##                                   names(newdata),
+        ##                                   newdata@.expr)
+        ind.str <- paste(
+            "array[",
+            paste(.replace.col.with.expr1(object$ind.vars, newdata),
+                  collapse = ", "),
+            "]", sep = "")
     else
         ind.str <- object$ind.str
 
@@ -313,7 +335,7 @@ predict.elnet.madlib <- function (object, newdata,
             coef.str <- "array[" %+% ("," %.% object$coef) %+% "]"
         else
             coef.str <- paste("(select ", madlib,
-                              ".array_scalar_mult(coeff_all, ",
+                              ".array_scalar_mult(coef_all, ",
                               object$y.scl, "::double precision) from ",
                               content(object$model), ")", sep = "")
         expr <- paste(madlib, ".elastic_net_gaussian_predict(",
@@ -370,6 +392,7 @@ predict.elnet.madlib <- function (object, newdata,
         .col.udt_name = udt.name,
         .where = where,
         .is.factor = FALSE,
+        .factor.ref = as.character(NA),
         .factor.suffix = "",
         .sort = sort)
 }

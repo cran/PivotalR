@@ -91,14 +91,17 @@
     }
 
     rst <- list(coef = coef, intercept = intercept)
-    rows <- gsub("\"", "", ind.vars)
+    rows <- gsub("\"", "", params$ind.vars)
+    rows <- gsub("::[\\w\\s]+", "", rows, perl = T)
     rst$ind.vars <- rows
     col.name <- gsub("\"", "", data@.col.name)
     appear <- data@.appear.name
     for (i in seq_len(length(col.name))) 
         if (col.name[i] != appear[i])
             rows <- gsub(col.name[i], appear[i], rows)
-    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- .reverse.consistent.func(rows)
+    rows <- gsub("\\s", "", rows)
     names(rst$coef) <- rows
     names(rst$intercept) <- "(Intercept)"
     rst$iter <- iter
@@ -115,8 +118,12 @@
     rst$call <- call
     rst$alpha <- alpha
     rst$lambda <- lambda
+    rst$col.name <- gsub("\"", "", data@.col.name)
     rst$method <- "cd"
     rst$family <- "gaussian"
+    rst$max.iter <- control$max.iter
+    rst$tolerance <- rst$tolerance
+    rst$factor.ref <- data@.factor.ref
     class(rst) <- "elnet.madlib"
     ## if (standardize) delete(mid)
     .restore.warnings(warnings)
@@ -212,14 +219,17 @@
     intercept <- coef[n+1]
     coef <- coef[1:n]
     rst <- list(coef = coef, intercept = intercept)
-    rows <- gsub("\"", "", ind.vars)
+    rows <- gsub("\"", "", params$ind.vars)
+    rows <- gsub("::[\\w\\s]+", "", rows, perl = T)
     rst$ind.vars <- rows
     col.name <- gsub("\"", "", data@.col.name)
     appear <- data@.appear.name
     for (i in seq_len(length(col.name))) 
         if (col.name[i] != appear[i])
             rows <- gsub(col.name[i], appear[i], rows)
-    rows <- gsub("\\((.*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- .reverse.consistent.func(rows)
+    rows <- gsub("\\s", "", rows)
     names(rst$coef) <- rows
     names(rst$intercept) <- "(Intercept)"
     rst$iter <- c(out.iter, inner.iter)
@@ -243,8 +253,12 @@
     rst$call <- call
     rst$alpha <- alpha
     rst$lambda <- lambda
+    rst$col.name <- gsub("\"", "", data@.col.name)
     rst$method <- "cd"
     rst$family <- "binomial"
+    rst$max.iter <- control$max.iter
+    rst$tolerance <- control$tolerance
+    rst$factor.ref <- data@.factor.ref
     class(rst) <- "elnet.madlib"
     if (standardize) delete(mid)
     .restore.warnings(warnings)

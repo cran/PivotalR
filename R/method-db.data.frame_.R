@@ -79,9 +79,10 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
 
     if (is(res, "db.table")) {
         ## compute dim
-        col.num <- length(res@.col.name)
-        row.num <- .db.getQuery(paste("select count(*) from", x), conn.id)
-        res@.dim <- c(row.num$count, col.num)
+        ## col.num <- length(res@.col.name)
+        ## row.num <- .db.getQuery(paste("select count(*) from", x), conn.id)
+        ## res@.dim <- c(row.num$count, col.num)
+        res@.dim <- integer(0)
     }
 
     ## table type (local temp)
@@ -92,6 +93,7 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
     res@.table.type <- tbl.type$table_type
 
     res@.is.factor <- rep(FALSE, length(res@.col.name))
+    res@.factor.ref <- rep(as.character(NA), length(res@.col.name))
     res@.appear.name <- res@.col.name
     res@.factor.suffix <- rep("", length(res@.col.name))
 

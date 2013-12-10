@@ -154,7 +154,8 @@ setMethod (
     def = function (x, table.name = NULL, verbose = TRUE,
     is.view = FALSE,
     is.temp = FALSE,  pivot = TRUE,
-    distributed.by = NULL, nrow = NULL, field.types = NULL) {
+    distributed.by = NULL, nrow = NULL, field.types = NULL,
+    factor.full = rep(FALSE, length(names(x)))) { # whether expand all levels
         warnings <- .suppress.warnings(conn.id(x))
         
         if (is.null(table.name)) {
@@ -226,9 +227,11 @@ setMethod (
         suffix <- x@.factor.suffix
         appear <- x@.col.name
         is.factor <- x@.is.factor
-
+        factor.ref <- x@.factor.ref
+        
         dummy <- character(0)
         dummy.expr <- character(0)
+        factor.ref <- rep(as.character(NA), length(x@.is.factor))
         if (pivot && !all(x@.is.factor == FALSE)) {
             cats <- x@.expr[x@.is.factor]
             sql <- "select "
@@ -249,17 +252,24 @@ setMethod (
                     distinct <- as.vector(arraydb.to.arrayr(distincts[[paste("distinct_",idx,sep="")]], "character"))
                     ## Produce a fixed order for distinct values
                     distinct <- distinct[order(distinct, decreasing = TRUE)]
-                    for (j in seq_len(length(distinct) - 1)) {
+                    if (is.na(x@.factor.ref[i]))
+                        avoid <- distinct[length(distinct)]
+                    else
+                        avoid <- x@.factor.ref[i]
+                    factor.ref[i] <- avoid
+                    for (j in seq_len(length(distinct))) {
+                        if (distinct[j] == avoid && !factor.full[i]) next
                         new.col <- paste(x@.col.name[i], suffix[i],
                                         distinct[j], sep = "")
                         is.factor <- c(is.factor, FALSE)
+                        factor.ref <- c(factor.ref, as.character(NA))
                         if (extra != "") extra <- paste(extra, ", ")
                         dex <- paste("(case when ", x@.expr[i], "::text = '",
                                      distinct[j], "'",
                                      " then 1 else 0 end)", sep = "")
                         extra <- paste(extra, " ", dex, " as ",
                                        "\"", new.col, "\"", sep = "")
-                        appear <- c(appear, paste(x@.col.name[i],":",
+                        appear <- c(appear, paste(x@.col.name[i],".",
                                                   distinct[j], sep = ""))
                         dummy <- c(dummy, new.col)
                         dummy.expr <- c(dummy.expr, dex)
@@ -294,6 +304,7 @@ setMethod (
         res <- db.data.frame(x = tbnn, conn.id = conn.id, key = x@.key,
                              verbose = verbose, is.temp = is.temp)
         res@.is.factor <- is.factor
+        res@.factor.ref <- factor.ref
         res@.factor.suffix <- suffix
         res@.appear.name <- appear
         res@.dummy <- dummy

@@ -5,6 +5,12 @@ setMethod (
     function (x) {
         ## if (!is(x, "db.table"))
         ##     stop("Dim information is only available for db.table object!")
+        if (identical(x@.dim, integer(0))) {
+            col.num <- length(x@.col.name)
+            row.num <- .db.getQuery(paste("select count(*) from", content(x)),
+                                    conn.id(x))
+            x@.dim <- c(row.num$count, col.num)
+        }
         x@.dim
     })
 
@@ -87,6 +93,7 @@ setMethod (
             .col.udt_name = x@.col.udt_name[select],
             .where = where,
             .is.factor = x@.is.factor[select],
+            .factor.ref = x@.factor.ref[select],
             .factor.suffix = x@.factor.suffix[select],
             .sort = sort,
             .dist.by = x@.dist.by)
