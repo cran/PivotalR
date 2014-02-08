@@ -20,40 +20,39 @@ approx.cut = TRUE, verbose = TRUE, find.min = TRUE)
 
 \arguments{
   \item{train}{
-    A training function. It must have at least one argument named
-    \code{data}. Given the data, it produces the model. It can also have
+    A training function. Its first argument must be a \code{\linkS4class{db.obj}} object which is the wrapper for the data in database.
+    Given the data, it produces the model. It can also have
   other parameters that specifies the model, and these parameters must
   appear in the list \code{params}.
   }
-  
+
   \item{predict}{
-    A prediction function. It must have only two arguments named
-    \code{object} and \code{newdata}, which are the fitted model and
-    the new data input for prediction.
+    A prediction function. It must have only two arguments, which are the fitted model (the first argument) and
+    the new data input for prediction (the second argument).
   }
-  
+
   \item{metric}{
-    A metric function. It must have only two arguments named
-    \code{predicted} and \code{actual}, where \code{predicted} is the
-    redictions and \code{actual} is the actual value. This function shoud measure the difference between the predicted and actual values and produce a single numeric value.
+    A metric function. It must have only two arguments.
+    The first argument is the
+    prediction and the second is the data that contains the actual value. This function shoud measure the difference between the predicted and actual values and produce a single numeric value.
   }
-  
+
   \item{data}{
     A \code{\linkS4class{db.obj}} object, which wraps the data in the
     database, used for cross-validation. Or a \code{data.frame}, which contains data in memory.
   }
-  
+
   \item{params}{
     A list, default is \code{NULL}. The values of each parameters used
     by the training function. An array of values for each parameter is
-    an element 
+    an element
     in the list. The value arrays for different parameters do not have
     to be the same length. The arrays of shorter lengths are circularly
-    expanded to the length of the longest element. 
+    expanded to the length of the longest element.
   }
-  
+
   \item{k}{
-    An integer, default is 10. The cross-validation fold number.  
+    An integer, default is 10. The cross-validation fold number.
   }
 
   \item{approx.cut}{
@@ -61,7 +60,7 @@ approx.cut = TRUE, verbose = TRUE, find.min = TRUE)
   }
 
   \item{verbose}{
-    A logical value, default is \code{TRUE}. Whether to print 
+    A logical value, default is \code{TRUE}. Whether to print
   }
 
   \item{find.min}{
@@ -87,7 +86,7 @@ When \code{approx.cut} is \code{TRUE}, which is the default, a column of uniform
 
   - \code{avg} The average metric value for each set of parameters.
 
-  - \code{std} The standard deviation for the metric values of each set   of parameters.
+  - \code{std} The standard deviation for the metric values of each set of parameters.
 
 - \code{vals} A matrix that contains all the metric value measured, whose rows correspond to different set of parameters, and columns correspond to different folds of cross-validation.
 }
@@ -108,7 +107,7 @@ When \code{approx.cut} is \code{TRUE}, which is the default, a column of uniform
 
 \author{
   Author: Predictive Analytics Team at Pivotal Inc.
-  
+
   Maintainer: Hai Qian, Pivotal Inc. \email{hqian@gopivotal.com}
 }
 
@@ -118,45 +117,54 @@ When \code{approx.cut} is \code{TRUE}, which is the default, a column of uniform
 
 \examples{
 \dontrun{
+%% @test .port Database port number
+%% @test .dbname Database name
+
 ## set up the database connection
-db.connect(port = 14526, dbname = "madlib")
+cid <- db.connect(port = .port, dbname = .dbname, verbose = FALSE)
 
-y <- db.data.frame("abalone")
+## ----------------------------------------------------------------------
 
-err <- generic.cv(function(data) {
-                      madlib.lm(rings ~ . - id - sex, data = data)
-                  },
-                  predict,
-                  function(predicted, data) {
-                      lookat(mean((data$rings - predicted)^2))
-                  }, data = y)
+dat <- as.db.data.frame(abalone, conn.id = cid, verbose = FALSE)
 
-## -------------------------------------------
+err <- generic.cv(     function(data) {
+        madlib.lm(rings ~ . - id - sex, data = data)
+    },
+    predict,
+    function(predicted, data) {
+        lookat(mean((data$rings - predicted)^2))
+    }, data = dat, verbose = FALSE)
+
+## ----------------------------------------------------------------------
 
 x <- matrix(rnorm(100*20),100,20)
 y <- rnorm(100, 0.1, 2)
 
-dat <- as.data.frame(cbind(x, y))
-
-delete("eldata")
-z <- as.db.data.frame(dat, "eldata")
+dat <- data.frame(x, y)
+delete("eldata", conn.id = cid)
+z <- as.db.data.frame(dat, "eldata", conn.id = cid, verbose = FALSE)
 
 g <- generic.cv(
     train = function (data, alpha, lambda) {
-        madlib.elnet(y ~ ., data = data, family = "gaussian", alpha =
-alpha, lambda = lambda, control = list(random.stepsize=TRUE))
+        madlib.elnet(y ~ ., data = data, family = "gaussian",
+        alpha = alpha, lambda = lambda,
+        control = list(random.stepsize=TRUE))
     },
     predict = predict,
-    metric = function (predicted, actual) {
-        lk(mean((actual$y - predicted)^2))
+    metric = function (predicted, data) {
+        lk(mean((data$y - predicted)^2))
     },
-    data = dat,
+    data = z,
     params = list(alpha=1, lambda=seq(0,0.2,0.1)),
-    k = 5, find.min = TRUE)
+    k = 5, find.min = TRUE, verbose = FALSE)
 
 plot(g$params$lambda, g$metric$avg, type = 'b')
 
 g$best
+
+## ----------------------------------------------------------------------
+
+db.disconnect(cid, verbose = FALSE)
 }
 }
 

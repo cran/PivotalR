@@ -1,4 +1,3 @@
-
 ## -----------------------------------------------------------------------
 ## Preview the object
 ## -----------------------------------------------------------------------
@@ -26,26 +25,13 @@ setGeneric (
         stop("nrows must be NULL, \"all\" or an integer!")
     limit.str
 }
-    
+
 ## -----------------------------------------------------------------------
 
 setMethod (
     "preview",
     signature (x = "db.table"),
     def = function (x, nrows = 100, array = TRUE, drop = TRUE) {
-        ## warn.r <- getOption("warn")
-        ## options(warn = -1)
-        ## if (array) {
-        ##     x <- .expand.array(x)
-        ##     res <- .db.getQuery(paste("select * from (", content(x), ") s",
-        ##                               .limit.str(nrows), sep = ""),
-        ##                         conn.id(x))
-        ## } else 
-        ##     res <- .db.getQuery(paste("select * from ", content(x),
-        ##                               .limit.str(nrows), sep = ""),
-        ##                         conn.id(x))
-        ## options(warn = warn.r) # reset R warning level
-        ## res
         if (length(names(x)) == 1 && x@.col.data_type == "array")
             z <- x[[names(x)]]
         else
@@ -77,7 +63,7 @@ setMethod (
         ##     res <- .db.getQuery(paste("select * from (", content(x), ") s",
         ##                               .limit.str(nrows), sep = ""),
         ##                         conn.id(x))
-        ## } else 
+        ## } else
         ##     res <- .db.getQuery(paste("select * from ", content(x),
         ##                               .limit.str(nrows), sep = ""),
         ##                         conn.id(x))
@@ -114,9 +100,9 @@ setMethod (
         ##         left <- setdiff(1:length(names(x)), select)
         ##         x <- x[left]
         ##         add.crossprod <- TRUE
-        ##     }                
-        ## }    
-        
+        ##     }
+        ## }
+
         if (interactive) {
             cat(deparse(substitute(x)),
                 "is just a query in R and does not point to any object in the database",
@@ -154,7 +140,7 @@ setMethod (
         ##     rst[[length(rst)+1]] <- res
         ##     return (rst)
         ## } else
-        
+
         return (res)
     })
 
@@ -192,7 +178,7 @@ setMethod (
 
         n <- dim(x)[1]
         dims <- x@.dim
-        
+
         if (n == 1) {
             ## rst <- arraydb.to.arrayr(res[,1], "double")
             if (x@.is.symmetric[1])
@@ -215,9 +201,9 @@ setMethod (
                 ## if (x@.inverse) rst[[i]] <- solve(rst[[i]])
             }
         }
-        
+
         .restore.warnings(warnings)
-           
+
         return (rst)
     })
 
@@ -245,4 +231,3 @@ lk <- lookat <- function (x, nrows = 100, array = TRUE, conn.id = 1, drop=TRUE)
     if (is(x, "character")) return (preview(x, conn.id, nrows, array, drop=drop))
     preview(x, nrows, FALSE, array, drop=drop)
 }
-

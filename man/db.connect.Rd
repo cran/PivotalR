@@ -12,7 +12,7 @@
 \usage{
 db.connect(host = "localhost", user = Sys.getenv("USER"), dbname = user,
 password = "", port = 5432, madlib = "madlib", conn.pkg = "RPostgreSQL",
-default.schemas = NULL)
+default.schemas = NULL, verbose = TRUE, quick = FALSE)
 }
 
 \arguments{
@@ -46,12 +46,22 @@ default.schemas = NULL)
   \item{default.schemas}{
     A string, default is \code{NULL}. The search path or default schemas
     of the database that you want to use. The string must be a set of
-  schema names 
+  schema names
     separated by commas. One can also use
   \code{\link{db.default.schemas}} or
-  \code{\link{db.search.path}}  to display or set the search 
+  \code{\link{db.search.path}}  to display or set the search
   path in the database.
-  }
+}
+\item{verbose}{
+  A logival value, default is \code{TRUE}, whether to print some information while connecting to the database.
+}
+\item{quick}{
+  A logical value, default is \code{FALSE}. Whether to skip some of the
+  argument checks to speed up the creation of the connection. Useful
+  when using this function inside a function, where you have already
+  validate all the arguments. It is not recommended to set this value to
+  \code{TRUE} when you are using this function directly.
+}
  }
 
 \value{
@@ -80,7 +90,7 @@ default.schemas = NULL)
 
   \code{\link{connection info}} the functions that extract information
   about the connection.
-  
+
   \code{\link{conn.eql}} tests whether two connections are the same.
 
   \code{\link{db.search.path}} and \code{\link{db.default.schemas}}
@@ -90,8 +100,13 @@ default.schemas = NULL)
 \examples{
 \dontrun{
 ## connect to a database
-db.connect(host = "localhost", user = "me", dbname = "me", password =
-"", port = 5432, madlib = "madlib")
+%% @test .port Database port number
+%% @test .dbname Database name
+## set up the database connection
+## Assume that .port is port number and .dbname is the database name
+cid <- db.connect(port = .port, dbname = .dbname, verbose = FALSE)
+
+db.disconnect(cid, verbose = FALSE)
 }
 }
 

@@ -1,4 +1,3 @@
-
 ## -----------------------------------------------------------------------
 ## Convert other R objects into db.data.frame
 ## -----------------------------------------------------------------------
@@ -49,7 +48,7 @@ setMethod (
             table.name <- .unique.string()
             is.temp <- TRUE
         }
-        .method.as.db.data.frame.1(x, 
+        .method.as.db.data.frame.1(x,
                                    table.name, verbose, conn.id,
                                    add.row.names, key,
                                    distributed.by, is.temp, ...)
@@ -70,7 +69,7 @@ setMethod (
             table.name <- .unique.string()
             is.temp <- TRUE
         }
-        
+
         f <- paste(getwd(), "/", x, sep = "")
         if (file.exists(f)) x <- f
         else if (!file.exists(x))
@@ -95,43 +94,61 @@ setMethod (
         table.name <- .unique.string()
         is.temp <- TRUE
     }
-    
+
     exists <- db.existsObject(table.name, conn.id, is.temp)
     if (is.temp) exists <- exists[[1]]
-    if (exists) stop("The table already exists in connection ", conn.id, "!")
-    
+    if (exists) {
+        .restore.warnings(warnings)
+        stop("The table already exists in connection ", conn.id, "!")
+    }
+
     if (!.is.arg.string(key)) stop("ID column name must be a string!")
     if (!identical(key, character(0)) &&
-        key == "row.names" && !add.row.names)
+        key == "row.names" && !add.row.names) {
+        .restore.warnings(warnings)
         stop("Set row.names as TRUE if you want to use row.names as key!")
+    }
     ## argument default, and checking
     ## if (missing(conn.id)) conn.id <- 1
-    if (!.is.conn.id.valid(conn.id))
+    if (!.is.conn.id.valid(conn.id)) {
+        .restore.warnings(warnings)
         stop("There is no such a connection!")
+    }
     if (!.is.arg.string(table.name) ||
-        nchar(table.name) == 0)
+        nchar(table.name) == 0) {
+        .restore.warnings(warnings)
         stop("The table name is not quite right!")
+    }
     ## if (missing(distributed.by)) distributed.by <- NULL
     ## if (missing(is.temp)) is.temp <- FALSE
 
     table <- .db.analyze.table.name(table.name)
     if ((!is.temp && .db.existsTable(table, conn.id)) ||
-        (is.temp && .db.existsTempTable(table, conn.id)[[1]]))
+        (is.temp && .db.existsTempTable(table, conn.id)[[1]])) {
+        .restore.warnings(warnings)
         stop("Table already exists!")
+    }
 
     .db.writeTable(table, x, add.row.names = add.row.names,
                    distributed.by = distributed.by,
                    is.temp = is.temp, conn.id = conn.id, ...)
 
     if (length(table) == 1 && !is.temp) {
-        table_schema <- .db.getQuery("select current_schema()", conn.id);
+        table_schema <- db.q("select current_schema()", conn.id = conn.id, verbose = FALSE);
         table.str <- paste(table_schema, ".", table, sep = "")
     } else
         table.str <- table.name
-    if (! identical(key, character(0)))
-        .db.getQuery(paste("alter table ", table.str,
-                           " add primary key (\"",
-                           key, "\")", sep = ""), conn.id)
+    if (! identical(key, character(0))) {
+        db <- .get.dbms.str(conn.id)
+        if (db$db.str == "HAWQ") {
+            .restore.warnings(warnings)
+            stop("HAWQ does not support primary keys!")
+        }
+        db.q("alter table ", table.str,
+             " add primary key (\"",
+             key, "\")", sep = "",
+             conn.id = conn.id, verbose = FALSE)
+    }
 
     .restore.warnings(warnings)
 
@@ -157,12 +174,12 @@ setMethod (
     distributed.by = NULL, nrow = NULL, field.types = NULL,
     factor.full = rep(FALSE, length(names(x)))) { # whether expand all levels
         warnings <- .suppress.warnings(conn.id(x))
-        
+
         if (is.null(table.name)) {
             table.name <- .unique.string()
             is.temp <- TRUE
         }
-        
+
         conn.id <- conn.id(x)
 
         if (is.view || !all(distributed.by %in% x@.col.name))
@@ -172,10 +189,13 @@ setMethod (
         exists <- db.existsObject(table.name, conn.id, is.temp)
 
         if (is.temp) exists <- exists[[1]]
-        if (exists) stop("The table already exists in connection ",
-                         conn.id, "!")
+        if (exists) {
+            .restore.warnings(warnings)
+            stop("The table already exists in connection ",
+                 conn.id, "!")
+        }
 
-        if (is.temp) 
+        if (is.temp)
             temp.str <- "temp"
         else
             temp.str <- ""
@@ -188,7 +208,7 @@ setMethod (
             where <- paste(" where", x@.where)
         else
             where <- ""
-        
+
         if (x@.source == x@.parent)
             tbl <- x@.parent
         else
@@ -206,7 +226,7 @@ setMethod (
         ## grouping column.
         if (is.null(field.types)) {
             data.types <- x@.col.data_type
-            extra <- paste(x@.expr, 
+            extra <- paste(x@.expr,
                            paste("\"", names(x), "\"", sep = ""),
                            sep = " as ", collapse = ",")
         } else {
@@ -228,7 +248,7 @@ setMethod (
         appear <- x@.col.name
         is.factor <- x@.is.factor
         factor.ref <- x@.factor.ref
-        
+
         dummy <- character(0)
         dummy.expr <- character(0)
         factor.ref <- rep(as.character(NA), length(x@.is.factor))
@@ -274,7 +294,7 @@ setMethod (
                         dummy <- c(dummy, new.col)
                         dummy.expr <- c(dummy.expr, dex)
                     }
-                } 
+                }
             }
         }
 
@@ -296,10 +316,9 @@ setMethod (
                             " as (", content.str, nrow.str, ") ",
                             dist.str, sep = "")
 
-        .get.res(sql = create.str, conn.id = conn.id,
-                 warns = warnings) # create table
-
         .restore.warnings(warnings)
+
+        db.q(create.str, conn.id = conn.id, verbose = FALSE) # create table
 
         res <- db.data.frame(x = tbnn, conn.id = conn.id, key = x@.key,
                              verbose = verbose, is.temp = is.temp)
@@ -330,7 +349,7 @@ setMethod (
         tbn <- strsplit(table.name, "\\.")[[1]]
         tbnn <- paste("\"", .strip(tbn, "\""),
                       "\"", collapse = ".", sep = "")
-        
+
         if (tbnn == content(x))
             stop("cannot copy an object into itself!")
         list(res = as.db.data.frame(x[,], tbnn, FALSE,
