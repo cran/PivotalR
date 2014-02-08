@@ -1,5 +1,6 @@
 # exportPattern("^[^\\.]")
 useDynLib(PivotalR)
+import(methods, Matrix)
 
 export("db.connect", "db.disconnect", "db.list")
 
@@ -79,6 +80,8 @@ export("groups", "groups.lm.madlib", "groups.logregr.madlib",
       "groups.lm.madlib.grps", "groups.logregr.madlib.grps")
 
 exportMethods("cbind2")
+
+export("cbind")
 
 export("madlib.arima")
 
