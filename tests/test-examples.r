@@ -49,7 +49,7 @@ fm <- summary(lm(rings ~ . - id - sex, data = dat.im))
 test_that("Examples of value equivalent", {
     ## numeric values are the same, but names are not
     ## 4, 5, 6
-    expect_that(fdb$coef,    equals(as.numeric(fm$coefficients[,1])))
+    expect_that(as.numeric(fdb$coef),    equals(as.numeric(fm$coefficients[,1])))
     expect_that(fdb$coef,    is_equivalent_to(fm$coefficients[,1]))
     expect_that(fdb$std_err, is_equivalent_to(fm$coefficients[,2]))
 })
@@ -252,6 +252,23 @@ test_that("Skip some tests", {
     skip_if(db$db.str == "HAWQ" && grepl("^1\\.2", db$version.str),
             expect_that(names(tmp), matches("new.col", all = FALSE)))
     expect_that(print(tmp), prints_text("temporary"))
+})
+
+## ----------------------------------------------------------------------
+
+## directly test SQL
+test_that("Test MADlib SQL", {
+    madsch <- schema.madlib(conn.id = cid)
+    res <- db.q(
+        "
+        drop table if exists lin_out, lin_out_summary;
+        select ", madsch, ".linregr_train('madlibtestdata.dt_abalone',
+        'lin_out', 'rings', 'array[1, length, diameter, shell]');
+        select coef from lin_out;
+        ", conn.id = cid, verbose = FALSE, nrows = -1)
+    res <- as.numeric(arraydb.to.arrayr(res))
+    fit <- lm(rings ~ length + diameter + shell, data = lk("madlibtestdata.dt_abalone", -1))
+    expect_that(res, equals(as.numeric(fit$coefficients)))
 })
 
 ## ----------------------------------------------------------------------

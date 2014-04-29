@@ -21,15 +21,16 @@
 
 \usage{ \S4method{as.db.data.frame}{character}(x, table.name = NULL,
 verbose = TRUE, conn.id = 1, add.row.names = FALSE, key = character(0),
-distributed.by = NULL, is.temp = FALSE, ...)
+distributed.by = NULL, append = FALSE, is.temp = FALSE, ...)
 
 \S4method{as.db.data.frame}{data.frame}(x, table.name = NULL, verbose =
 TRUE, conn.id = 1, add.row.names = FALSE, key = character(0),
-distributed.by = NULL, is.temp = FALSE, ...)
+distributed.by = NULL, append = FALSE, is.temp = FALSE, ...)
 
 \S4method{as.db.data.frame}{db.Rquery}(x, table.name = NULL, verbose =
 TRUE, is.view = FALSE, is.temp = FALSE, pivot = TRUE, distributed.by =
-NULL, nrow = NULL, field.types = NULL, factor.full = rep(FALSE, length(names(x))))
+NULL, nrow = NULL, field.types = NULL, na.as.level = FALSE,
+factor.full = rep(FALSE, length(names(x))))
 
 \S4method{as.db.data.frame}{db.data.frame}(x, table.name = NULL, verbose
 = TRUE, is.view = FALSE, is.temp = FALSE, distributed.by = NULL, nrow =
@@ -95,6 +96,11 @@ as.db.Rview(x)
     distribute the data according to that column.
   }
 
+  \item{append}{
+    A logical, default is \code{FALSE}. Whether to append the content of a
+    file or data.frame to an existing table in the database.
+  }
+
   \item{nrow}{
     An integer, default is \code{NULL}. How many rows of data extracted
     from a \code{\linkS4class{db.Rquery}} object is used to create the
@@ -142,6 +148,11 @@ and it defaults to 0.
     A logical, default is \code{TRUE}, whether to create dummy columns
     for a column that has been denoted as "factor". See
     \code{\link{as.factor}} for more details.
+  }
+
+  \item{na.as.level}{
+      A logical value, default is \code{FALSE}. Whether to treat \code{NA}
+      value as a level in a categorical variable or just ignore it.
   }
 
   \item{field.types}{

@@ -10,9 +10,10 @@ margins <- function (model, dydx = ~ Vars(model), newdata = model$data,
 .prepare.ind.vars <- function(ind.vars)
 {
     vars <- gsub("::[\\w\\s]+", "", ind.vars, perl = T)
-    vars <- gsub("\"", "`", vars)
-    vars <- gsub("\\(`([^\\[\\]]*)`\\)\\[(\\d+)\\]", "`\"\\1\"[\\2]`", vars)
-    vars <- gsub("\\s", "", vars)
+    vars <- gsub("\"", "`", vars, perl = T)
+    vars <- gsub("\\(`([^\\[\\]]*?)`\\)\\[(\\d+?)\\]", "`\"\\1\"[\\2]`",
+                 vars, perl = T)
+    vars <- gsub("\\s", "", vars, perl = T)
     vars <- .reverse.consistent.func(vars)
     vars
 }
@@ -42,14 +43,18 @@ Vars <- function(model)
 ## Add `\"\"` quotes to vars using model.vars
 .add.quotes <- function(vars, model.vars)
 {
-    as.vector(sapply(vars,
-           function(v) {
-               for (var in model.vars)
-                   v <- gsub(var, paste("`\"", var, "\"`", sep = ""), v)
-               v <- gsub("([^`]|^)\"([^\\[\\]]*)\"\\[(\\d+)\\]([^`]|$)",
-                         "(`\"\\2\"[\\3]`)", v)
-               v
-           }))
+    no.conflict.names <- sapply(seq_along(model.vars), function(i) .unique.string())
+    parse.var <- function (v) {
+        for (i in order(nchar(model.vars), decreasing = TRUE))
+            v <- gsub(model.vars[i], paste("`\"", no.conflict.names[i], "\"`", sep = ""),
+                      v, perl = TRUE)
+        for (i in seq_along(model.vars))
+            v <- gsub(no.conflict.names[i], model.vars[i], v, perl = TRUE)
+        v <- gsub("([^`]|^)\"([^\\[\\]]*?)\"\\[(\\d+?)\\]([^`]|$)",
+                  "(`\"\\2\"[\\3]`)", v, perl = TRUE)
+        v
+    }
+    as.vector(sapply(vars, parse.var))
 }
 
 ## ----------------------------------------------------------------------
@@ -89,7 +94,6 @@ Vars <- function(model)
         select.vars <- c(select.vars, idx)
     }
     select.vars <- unique(select.vars)
-
     f.vars <- unique(c(select.vars, f.vars[!is.vars]))
 
     is.ind <- rep(FALSE, length(f.vars))
@@ -110,10 +114,10 @@ Vars <- function(model)
         } else if (grepl("^[^\\[\\]]*\\[[^\\[\\]]*\\]$",
                          f.vars[i], perl = T)) {
             var <- gsub("`", "", f.vars[i])
-            x.str <- gsub("([^\\[\\]]*)\\[[^\\[\\]]*\\]", "\\1", var,
-                          perl = TRUE)
-            idx <- gsub("[^\\[\\]]*\\[([^\\[\\]]*)\\]", "\\1", var,
-                        perl = TRUE)
+            x.str <- gsub("([^\\[\\]]*?)\\[[^\\[\\]]*?\\]", "\\1", var,
+                           perl = TRUE)
+            idx <- gsub("[^\\[\\]]*?\\[([^\\[\\]]*?)\\]", "\\1", var,
+                         perl = TRUE)
             idx <- eval(parse(text = idx))
             expand.vars <- c(expand.vars, paste("`\"", .strip(x.str, "\""),
                                                 "\"[", idx, "]`", sep = ""))
@@ -206,6 +210,7 @@ Vars <- function(model)
     model.vars <- .add.quotes(gsub("`", "", model.vars), mvars)
     model.vars <- lapply(model.vars, function(x)
                          eval(parse(text=paste("quote(", x, ")", sep = ""))))
+
     names(model.vars) <- paste("\"term.", seq_len(n), "\"", sep = "")
 
     if (any(! (gsub("\"", "", gsub("`", "", expand.vars)) %in%
@@ -215,8 +220,10 @@ Vars <- function(model)
              "or the table column names!")
 
     expand.vars <- paste("\"", expand.vars, "\"", sep = "")
-    expand.vars <- gsub("\"`\"([^\\[\\]]*)\"\\[([^\\[\\]]*)\\]`\"", "\"\\1\"[\\2]", expand.vars)
-    expand.vars <- gsub("\"`([^\\[\\]]*)\\[([^\\[\\]]*)\\]`\"", "\"\\1\"[\\2]", expand.vars)
+    expand.vars <- gsub("\"`\"([^\\[\\]]*?)\"\\[([^\\[\\]]*?)\\]`\"", "\"\\1\"[\\2]",
+                        expand.vars, perl = TRUE)
+    expand.vars <- gsub("\"`([^\\[\\]]*?)\\[([^\\[\\]]*?)\\]`\"", "\"\\1\"[\\2]",
+                        expand.vars, perl = TRUE)
 
     return (list(vars = expand.vars, is.ind = expand.is.ind,
                  is.factor = is.factor, factors = factors,
@@ -233,8 +240,16 @@ margins.lm.madlib <- function(model, dydx = ~ Vars(model),
 {
     ## stopifnot(inherits(at, "list"))
 
+    if (!is.null(model$na.action)) na.action <- model$na.action
+    if (model$num_missing_rows_skipped > 0) na.action <- na.omit
     if (!is.null(na.action)) {
-        newdata <- na.action(newdata, vars = Vars(model))
+        vars <- unique(gsub(paste(.unique.pattern(),
+                                  ".*$", sep = ""), "",
+                            Vars(model), perl = T))
+        newdata <- na.action(
+            newdata, vars = union(
+                all.vars(parse(text = rownames(attr(model$terms, "factors"))[1])),
+                vars))
     }
 
     vars <- dydx
@@ -252,7 +267,7 @@ margins.lm.madlib <- function(model, dydx = ~ Vars(model),
         avgs <- lk(mean(newdata))
         avgs <- .expand.avgs(avgs)
         names(avgs) <- paste("\"", gsub("_avg$", "", names(avgs)), "\"", sep = "")
-        names(avgs) <- gsub("([^`]|^)\"([^\\[\\]]*)_avg\\[(\\d+)\\]\"([^`]|$)",
+        names(avgs) <- gsub("([^`]|^)\"([^\\[\\]]*?)_avg\\[(\\d+?)\\]\"([^`]|$)",
                             "\"\\2\"[\\3]", names(avgs))
     ## } else if (length(at) > 0) {
     ##     at.mean <- TRUE
@@ -267,7 +282,7 @@ margins.lm.madlib <- function(model, dydx = ~ Vars(model),
 
     res <- .margins.lin(P, model, model$coef, newdata, f$vars, f$is.ind,
                         f$is.factor, f$model.vars, f$factors,
-                        at.mean, factor.continuous, avgs = avgs)
+                        na.action, at.mean, factor.continuous, avgs = avgs)
 
     ## re-arrange the order of results
     ## in res, non-factor results are all in front of factor results
@@ -296,7 +311,7 @@ margins.lm.madlib <- function(model, dydx = ~ Vars(model),
                       rows[f$is.factor][i], 1:2],
             collapse = ".")
     }
-    rows <- gsub("([^\\[\\]]*)\"\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("([^\\[\\]]*?)\"\\[(\\d+?)\\]", "\\1[\\2]", rows)
 
     res <- data.frame(cbind(Estimate = mar, `Std. Error` = se, `t value` = t,
                             `Pr(>|t|)` = p), row.names = rows,
@@ -335,8 +350,16 @@ margins.logregr.madlib <- function(model, dydx = ~ Vars(model),
 {
     ## stopifnot(inherits(at, "list"))
 
+    if (!is.null(model$na.action)) na.action <- model$na.action
+    if (model$num_missing_rows_skipped > 0) na.action <- na.omit
     if (!is.null(na.action)) {
-        newdata <- na.action(newdata, vars = Vars(model))
+        vars <- unique(gsub(paste(.unique.pattern(),
+                                  ".*$", sep = ""), "",
+                            Vars(model), perl = T))
+        newdata <- na.action(
+            newdata, vars = union(
+                all.vars(parse(text = rownames(attr(model$terms, "factors"))[1])),
+                vars))
     }
 
     vars <- dydx
@@ -366,7 +389,7 @@ margins.logregr.madlib <- function(model, dydx = ~ Vars(model),
         avgs <- .expand.avgs(avgs)
         names(avgs) <- gsub("_avg$", "", names(avgs))
         names(avgs) <- paste("\"", gsub("_avg$", "", names(avgs)), "\"", sep = "")
-        names(avgs) <- gsub("([^`]|^)\"([^\\[\\]]*)_avg\\[(\\d+)\\]\"([^`]|$)",
+        names(avgs) <- gsub("([^`]|^)\"([^\\[\\]]*?)_avg\\[(\\d+?)\\]\"([^`]|$)",
                             "\"\\2\"[\\3]", names(avgs))
         expr <- gsub("\\s", "",
                      paste(deparse(eval(parse(text = paste("substitute(",
@@ -384,7 +407,7 @@ margins.logregr.madlib <- function(model, dydx = ~ Vars(model),
 
     res <- .margins.log(P, model, model$coef, newdata, f$vars, f$is.ind,
                         f$is.factor, f$model.vars, sigma.name, f$factors,
-                        at.mean, factor.continuous, avgs = avgs)
+                        na.action, at.mean, factor.continuous, avgs = avgs)
 
     ## re-arrange the order of results
     ## in res, non-factor results are all in front of factor results
@@ -413,7 +436,8 @@ margins.logregr.madlib <- function(model, dydx = ~ Vars(model),
                                               rows[f$is.factor][i], 1:2],
                                     collapse = ".")
     }
-    rows <- gsub("([^\\[\\]]*)\"\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("([^\\[\\]]*?)\"\\[(\\d+?)\\]", "\\1[\\2]", rows)
+
     res <- data.frame(cbind(Estimate = mar, `Std. Error` = se, `z value` = z,
                             `Pr(>|z|)` = p),
                       row.names = rows, check.names = FALSE)
@@ -523,7 +547,7 @@ margins.logregr.madlib.grps <- function(model, dydx = ~ Vars(model),
 
 ## special margins for linear
 .margins.lin <- function(P, model, coef, data, vars, is.ind, is.factor,
-                         model.vars, factors, at.mean = FALSE,
+                         model.vars, factors, na.action, at.mean = FALSE,
                          factor.continuous = FALSE, avgs = NULL)
 {
     coefs <- as.list(coef)
@@ -663,7 +687,7 @@ margins.logregr.madlib.grps <- function(model, dydx = ~ Vars(model),
         se <- t(array(mar.se[-seq_len(m)], dim = c(n,m)))
     }
     names(mar) <- gsub("`", "", vars)
-    v <- vcov(model)
+    v <- vcov(model, na.action)
     se <- diag(se %*% v %*% t(se))
     return (list(mar=mar, se=se))
 }
@@ -671,7 +695,7 @@ margins.logregr.madlib.grps <- function(model, dydx = ~ Vars(model),
 ## ----------------------------------------------------------------------
 
 .margins.log <- function(P, model, coef, data, vars, is.ind, is.factor,
-                         model.vars, sigma, factors, at.mean = FALSE,
+                         model.vars, sigma, factors, na.action, at.mean = FALSE,
                          factor.continuous = FALSE, avgs = NULL)
 {
     conn.id <- conn.id(data)
@@ -852,7 +876,7 @@ margins.logregr.madlib.grps <- function(model, dydx = ~ Vars(model),
         }
     }
     names(mar) <- gsub("`", "", vars)
-    v <- vcov(model)
+    v <- vcov(model, na.action)
     se <- diag(se %*% v %*% t(se))
     return(list(mar=mar, se=se))
 }
@@ -1012,5 +1036,3 @@ margins.logregr.madlib.grps <- function(model, dydx = ~ Vars(model),
     } else
         var
 }
-
-

@@ -7,7 +7,7 @@ setClass("elnet.madlib")
 madlib.elnet <- function (formula, data,
                           family = c("gaussian", "linear", "binomial",
                           "logistic"),
-                          na.action = NULL,
+                          na.action = NULL, na.as.level = FALSE,
                           alpha = 1, lambda = 0.1, standardize = TRUE,
                           method = c("fista", "igd", "sgd", "cd"),
                           control = list(),
@@ -34,7 +34,7 @@ madlib.elnet <- function (formula, data,
 
     warnings <- .suppress.warnings(conn.id)
 
-    analyzer <- .get.params(formula, data, na.action)
+    analyzer <- .get.params(formula, data, na.action, na.as.level)
     data <- analyzer$data
 
     params <- analyzer$params
@@ -100,7 +100,7 @@ madlib.elnet <- function (formula, data,
                 sep = " ", nrows = -1)
     model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
 
-    if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
+    if (is.tbl.source.temp) delete(tbl.source, conn.id)
     .restore.warnings(warnings)
 
     ## prepare the result
@@ -115,7 +115,7 @@ madlib.elnet <- function (formula, data,
     for (i in seq_len(length(col.name)))
         if (col.name[i] != appear[i])
             rows <- gsub(col.name[i], appear[i], rows)
-    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("\\(([^\\[\\]]*?)\\)\\[(\\d+?)\\]", "\\1[\\2]", rows)
     rows <- .reverse.consistent.func(rows)
     rows <- gsub("\\s", "", rows)
     names(rst$coef) <- rows

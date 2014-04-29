@@ -2,8 +2,8 @@
 ## directly execute SQL
 ## ----------------------------------------------------------------------
 
-db.q <- function(..., nrows = 100, conn.id = 1, sep = " ",
-                 verbose = TRUE)
+db <- db.q <- function(..., nrows = 100, conn.id = 1, sep = " ",
+                       verbose = TRUE)
 {
     if (!.is.conn.id.valid(conn.id))
         stop(conn.id, " is not a valid connection ID. ",
@@ -27,6 +27,10 @@ db.q <- function(..., nrows = 100, conn.id = 1, sep = " ",
 
     if (is(res, "error")) {
         .restore.warnings(warns)
+        if (!verbose) {
+            message("Executing in database connection ", conn.id, ":\n")
+            cat(sql, "\n\n")
+        }
         stop(res$message)
     }
 

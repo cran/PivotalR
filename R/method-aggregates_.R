@@ -33,10 +33,10 @@
             length(udt.name) != length(names(x)))
             stop("data.type or udt_name does not match column names!")
     }
-    
+
     l <- length(names(x))
     col.name <- paste(names(x), "_", func, sep = "")
-    
+
     if ((x[[1]])@.col.data_type != "array" && (length(names(x)) != 1 ||
                 x@.col.data_type != "array"))
         res <- .sub.aggregate(x[[1]], func, vector, input.types, allow.bool,
@@ -92,7 +92,7 @@
                 prebra <- "("
                 apbra <- ")"
             }
-    
+
     if (is(x, "db.data.frame")) {
         expr <- paste(func, "(\"", inside, names(x), "\"", cast.bool, ")",
                       sep = "")
@@ -215,8 +215,8 @@ setMethod (
     "max",
     signature(x = "db.obj"),
     function (x, ..., na.rm = FALSE) {
-        res <- .aggregate(x, "max", FALSE, .num.types, FALSE,
-                          x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "max", FALSE, c(.num.types, .time.types),
+                          FALSE, x@.col.data_type, x@.col.udt_name)
         res@.is.agg <- TRUE
         res
     },
@@ -230,8 +230,8 @@ setMethod (
     "min",
     signature(x = "db.obj"),
     function (x, ..., na.rm = FALSE) {
-        res <- .aggregate(x, "min", FALSE, .num.types, FALSE,
-                          x@.col.data_type, x@.col.udt_name)
+        res <- .aggregate(x, "min", FALSE, c(.num.types, .time.types),
+                          FALSE, x@.col.data_type, x@.col.udt_name)
         res@.is.agg <- TRUE
         res
     },
@@ -419,7 +419,7 @@ colAgg <- function (x)
 ## array_agg all the columns on the same row
 db.array <- function (x, ...)
 {
-    if (length(names(x)) == 1 && x@.col.data_type == "array") return (x)
+    #if (length(names(x)) == 1 && x@.col.data_type == "array") return (x)
     n <- nargs()
     dat <- list()
     dat[[1]] <- .expand.array(x)
@@ -427,7 +427,7 @@ db.array <- function (x, ...)
         y <- eval(parse(text = paste("..", i, sep = "")))
         dat[[i+1]] <- .expand.array(y)
     }
-    
+
     base <- NULL
     if (is(dat[[1]], "db.obj")) base <- dat[[1]]
     else
@@ -443,17 +443,17 @@ db.array <- function (x, ...)
     if (!all(base@.col.data_type %in% .num.types) &&
         !all(base@.col.data_type %in% .txt.types) &&
         !all(base@.col.data_type %in% c('boolean')))
-        stop("columns cannot be put into the same array!")
+        stop("columns may have different types and cannot be put into the same array!")
 
     if (base@.col.data_type[1] %in% .num.types)
         udt.name <- "_float8"
     else if (base@.col.data_type[1] %in% .txt.types)
         udt.name <- "_text"
-    else if (base@.col.data_type[1] %in% c("boolean")) 
+    else if (base@.col.data_type[1] %in% c("boolean"))
         udt.name <- "_bool"
     else
         stop("data type not supported!")
-    
+
     if (is(base, "db.data.frame")) {
         tbl <- content(base)
         src <- tbl
@@ -556,7 +556,7 @@ db.array <- function (x, ...)
         if (!all(data.types %in% .num.types) &&
             !all(data.types %in% .txt.types) &&
             !all(data.types %in% c('boolean')))
-            stop("columns cannot be put into the same array!")
+            stop("columns may have different types and cannot be put into the same array!")
     } else {
         if (udt.name == "_float") x <- as.numeric(x)
         else if (udt.name == "_text") x <- as.character(x)

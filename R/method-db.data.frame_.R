@@ -83,7 +83,9 @@ db.data.frame <- function (x, conn.id = 1, key = character(0), verbose = TRUE,
     if (is(res, "db.table")) {
         ## compute dim
         col.num <- length(res@.col.name)
-        row.num <- .db.getQuery(paste("select count(*) from", x), conn.id)
+        if (verbose) cat("Counting and caching the data table dimension ... ")
+        timing <- system.time({row.num <- db("select count(*) from", x, conn.id = conn.id, verbose = FALSE)})
+        if (verbose) cat(as.numeric(timing[3]), "sec ... done.\n")
         res@.dim <- c(row.num$count, col.num)
     }
 

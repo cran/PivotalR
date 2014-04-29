@@ -54,7 +54,8 @@ madlib.glm <- function (formula, data,
 ## -----------------------------------------------------------------------
 
 .madlib.logregr <- function (formula, data, na.action = NULL, method = "irls",
-                             max.iter = 10000, tolerance = 1e-5)
+                             max.iter = 10000, tolerance = 1e-5,
+                             na.as.level = FALSE)
 {
     ## make sure fitting to db.obj
     if (! is(data, "db.obj"))
@@ -66,15 +67,12 @@ madlib.glm <- function (formula, data,
     .check.madlib.version(data)
 
     warnings <- .suppress.warnings(conn.id(data))
-
-    analyzer <- .get.params(formula, data, na.action)
+    analyzer <- .get.params(formula, data, na.action, na.as.level)
     data <- analyzer$data
     params <- analyzer$params
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
     tbl.source <- analyzer$tbl.source
-
     db <- .get.dbms.str(conn.id(data))
-
     ## dependent, independent and grouping strings
     if (is.null(params$grp.str))
         grp <- "NULL::text"
@@ -114,7 +112,7 @@ madlib.glm <- function (formula, data,
 
     ## drop temporary tables
     ## if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
-    if (is.tbl.source.temp) .db.removeTable(tbl.source, conn.id)
+    if (is.tbl.source.temp) delete(tbl.source, conn.id)
 
     if (db$db.str == "HAWQ" && grepl("^1\\.1", db$version.str))
         model <- NULL
@@ -146,15 +144,25 @@ madlib.glm <- function (formula, data,
     r.call <- call # the current function call itself
     r.dummy <- data@.dummy
     r.dummy.expr <- data@.dummy.expr
+    term.names <- .term.names(r.has.intercept, r.ind.vars, r.col.name, r.appear)
 
     for (i in seq_len(n.grps)) {
         rst[[i]] <- list()
         for (j in seq(res.names))
             rst[[i]][[res.names[j]]] <- res[[res.names[j]]][[i]]
         rst[[i]]$coef <- r.coef[i,]
+        if (all(is.na(rst[[i]]$coef))) {
+            warning("NA in the result !")
+            class(rst[[i]]) <- "logregr.madlib"
+            next
+        }
+        names(rst[[i]]$coef) <- term.names
         rst[[i]]$std_err <- r.std_err[i,]
+        names(rst[[i]]$std_err) <- term.names
         rst[[i]]$z_stats <- r.z_stats[i,]
+        names(rst[[i]]$z_stats) <- term.names
         rst[[i]]$p_values <- r.p_values[i,]
+        names(rst[[i]]$p_values) <- term.names
         rst[[i]]$odds_ratios <- r.odds_ratios[i,]
         rst[[i]]$grp.cols <- r.grp.cols
         rst[[i]]$grp.expr <- r.grp.expr
@@ -170,6 +178,7 @@ madlib.glm <- function (formula, data,
         rst[[i]]$model <- model
         rst[[i]]$terms <- params$terms
         rst[[i]]$factor.ref <- data@.factor.ref
+        rst[[i]]$na.action <- na.action
 
         if (length(r.grp.cols) != 0) {
             ## cond <- Reduce(function(l, r) l & r,
@@ -226,21 +235,25 @@ print.logregr.madlib.grps <- function (x,
 {
     n.grps <- length(x)
 
-    if (x[[1]]$has.intercept)
-        rows <- c("(Intercept)", x[[1]]$origin.ind)
+    i <- 1
+    while (i <= n.grps) if (!all(is.na(x[[i]]$coef))) break
+    if (i == n.grps + 1) stop("All models' coefficients are NAs!")
+
+    if (x[[i]]$has.intercept)
+        rows <- c("(Intercept)", x[[i]]$origin.ind)
     else
-        rows <- x[[1]]$ind.vars
+        rows <- x[[i]]$ind.vars
     rows <- gsub("\"", "", rows)
-    for (i in seq_len(length(x[[1]]$col.name)))
-        if (x[[1]]$col.name[i] != x[[1]]$appear[i])
-            rows <- gsub(x[[1]]$col.name[i], x[[1]]$appear[i], rows)
-    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    for (j in seq_len(length(x[[i]]$col.name)))
+        if (x[[i]]$col.name[j] != x[[i]]$appear[j])
+            rows <- gsub(x[[i]]$col.name[j], x[[i]]$appear[j], rows)
+    rows <- gsub("\\(([^\\[\\]]*?)\\)\\[(\\d+?)\\]", "\\1[\\2]", rows)
     rows <- .reverse.consistent.func(rows)
     rows <- gsub("\\s", "", rows)
     ind.width <- .max.width(rows)
 
     cat("\nMADlib Logistic Regression Result\n")
-    cat("\nCall:\n", paste(deparse(x[[1]]$call), sep = "\n", collapse = "\n"),
+    cat("\nCall:\n", paste(deparse(x[[i]]$call), sep = "\n", collapse = "\n"),
         "\n", sep = "")
     if (n.grps > 1)
         cat("\nThe data is divided into", x$grps, "groups\n")
@@ -287,6 +300,7 @@ print.logregr.madlib <- function (x,
                                   getOption("digits") - 3L),
                                   ...)
 {
+    if (all(is.na(x$coef))) stop("Coefficients are NAs!")
     if (x$has.intercept)
         rows <- c("(Intercept)", x$ind.vars)
     else
@@ -296,7 +310,7 @@ print.logregr.madlib <- function (x,
     for (i in seq_len(length(x$col.name)))
         if (x$col.name[i] != x$appear[i])
             rows <- gsub(x$col.name[i], x$appear[i], rows)
-    rows <- gsub("\\(([^\\[\\]]*)\\)\\[(\\d+)\\]", "\\1[\\2]", rows)
+    rows <- gsub("\\(([^\\[\\]]*?)\\)\\[(\\d+?)\\]", "\\1[\\2]", rows)
     rows <- .reverse.consistent.func(rows)
     rows <- gsub("\\s", "", rows)
     ind.width <- .max.width(rows)

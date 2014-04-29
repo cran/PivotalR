@@ -141,7 +141,7 @@ export("array.len")
 
 exportMethods("na.omit")
 
-export("db.q")
+export("db.q", "db")
 
 export("vcov.lm.madlib", "vcov.lm.madlib.grps",
        "vcov.logregr.madlib.grps", "vcov.logregr.madlib")
@@ -153,4 +153,4 @@ export("margins", "margins.lm.madlib", "margins.lm.madlib.grps",
        "margins.logregr.madlib", "margins.logregr.madlib.grps",
        "print.margins")
 
-export("Vars")
+export("Vars", "Terms")
