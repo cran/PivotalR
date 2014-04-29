@@ -30,9 +30,10 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
         elm[elm == "NULL"] <- NA
         if (type == "integer")
             class(elm) <- "integer"
-        else if (type == "logical")
+        else if (type == "logical") {
+            elm <- toupper(elm)
             class(elm) <- "logical"
-        else
+        } else
             class(elm) <- "numeric"
     }
 
@@ -180,6 +181,16 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
 .unique.pattern <- function()
     "madlib_temp_[a-f\\d]{8}_[a-f\\d]{4}_[a-f\\d]{6}_[a-f\\d]{12}"
 
+.unique.string.short <- function ()
+{
+    hex_digits <- c(as.character(0:9), letters[1:6])
+    s <- paste(sample(hex_digits, 4), collapse='')
+    paste("_mad", s, "_", sep = "")
+}
+
+.unique.pattern.short <- function()
+    "_mad[a-f\\d]{4}_"
+
 ## -----------------------------------------------------------------------
 
 ## strip the leading and trailing white spaces
@@ -264,9 +275,10 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
                 new.col <- gsub(paste("^", col, sep = ""), "",
                                 names(data)[grep(paste(col, suffix[i],
                                                        sep=""),
-                                                 names(data))])
+                                                 names(data))],
+                                perl = TRUE)
                 distinct[[col]] <- new.col
-                ref[[col]] <- paste(suffix[i], the.refs[i], sep = "")
+                ref[[col]] <- paste("`", suffix[i], the.refs[i], "`", sep = "")
                 if (length(new.col) > max.level)
                     max.level <- length(new.col)
             }
@@ -276,7 +288,8 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
             names(fake) <- names(data)
             for (i in seq_len(l)) {
                 if (data@.is.factor[i]) {
-                    fake[,i] <- array(distinct[[data@.col.name[i]]], dim = c(max.level, 1))
+                    fake[,i] <- array(paste("`", distinct[[data@.col.name[i]]], "`",
+                                            sep = ""), dim = c(max.level, 1))
                     fake[,i] <- as.factor(fake[,i])
                     fake[,i] <- relevel(fake[,i],
                                         ref = ref[[data@.col.name[i]]])
@@ -455,7 +468,14 @@ arraydb.to.arrayr <- function (str, type = "double", n = 1)
     mf <- eval(mf, parent.frame())
     mt <- attr(mf, "terms")
     x <- model.matrix(mt, mf, contrasts)
-    colnames(x)
+    res <- colnames(x)
+    for (s in names(data)) {
+        if (all(!grepl(paste("`", s, "`", sep = ""), res, fixed = TRUE)))
+            res <- gsub(paste(s, "`", sep = ""),
+                        paste("`", s, sep = ""),
+                        res, perl = T, fixed = TRUE)
+    }
+    res
 }
 
 ## ----------------------------------------------------------------------
