@@ -1,9 +1,16 @@
 \name{residuals}
 
 \alias{residuals.logregr.madlib}
+
 \alias{residuals.logregr.madlib.grps}
+
 \alias{residuals.lm.madlib}
+
 \alias{residuals.lm.madlib.grps}
+
+\alias{residuals.glm.madlib}
+
+\alias{residuals.glm.madlib.grps}
 
 \title{residuals methods for Madlib regression objects}
 
@@ -12,10 +19,19 @@
 }
 
 \usage{
-    \method{residuals}{lm.madlib}(object, ...)
-    \method{residuals}{lm.madlib.grps}(object, ...)
-    \method{residuals}{logregr.madlib}(object, ...)
-    \method{residuals}{logregr.madlib.grps}(object, ...)
+
+\method{residuals}{lm.madlib}(object, ...)
+
+\method{residuals}{lm.madlib.grps}(object, ...)
+
+\method{residuals}{logregr.madlib}(object, ...)
+
+\method{residuals}{logregr.madlib.grps}(object, ...)
+
+\method{residuals}{glm.madlib}(object, ...)
+
+\method{residuals}{glm.madlib.grps}(object, ...)
+
 }
 
 \arguments{
@@ -40,7 +56,7 @@
 \author{
   Author: Predictive Analytics Team, Pivotal Inc.
 
-  Maintainer: Hai Qian, Pivotal Inc. \email{hqian@pivotal.io}
+  Maintainer: Caleb Welton, Pivotal Inc. \email{cwelton@pivotal.io}
 }
 
 \seealso{
