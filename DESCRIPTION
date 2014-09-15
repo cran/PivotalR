@@ -2,7 +2,7 @@ Package: PivotalR
 Type: Package
 Title: R front-end to PostgreSQL and Pivotal (Greenplum) database,
         wrapper for MADlib
-Version: 0.1.17.3
+Version: 0.1.17.8
 Date: 2014-09-15
 Author: Predictive Analytics Team at Pivotal Inc. <user@madlib.net>,
         with contributions from Data Scientist Team at Pivotal Inc.
@@ -25,7 +25,7 @@ Description: R interface of Pivotal Data Fabrics running on PostgreSQL
 License: GPL (>= 2)
 LazyLoad: yes
 LazyData: yes
-Packaged: 2014-09-16 18:20:57 UTC; hqian
+Packaged: 2014-10-10 18:59:52 UTC; hqian
 NeedsCompilation: yes
 Repository: CRAN
-Date/Publication: 2014-09-16 23:46:50
+Date/Publication: 2014-10-10 21:43:38

@@ -35,8 +35,17 @@ madlib.rpart <- function(formula, data, weights = NULL, id = NULL,
     ## analyze the formula
     #formula <- update(formula, ~ . - 1) # exclude constant
     f.str <- strsplit(paste(deparse(formula), collapse = ""), "\\|")[[1]]
-    f.str <- paste(c(paste(deparse(update(formula(f.str[1]), ~ . - 1)), collapse = ""),
-                     if (is.na(f.str[2])) NULL else f.str[2]), collapse = " | ")
+
+    ## In order to deal with formula like " ~ . - id", we need a fake data
+    ## frame with the same column names
+    # fake.data <- as.data.frame(array(1, dim = c(1, length(names(data)))))
+    # names(fake.data) <- names(data)
+    #
+    # f.str <- paste(c(paste(deparse(update(formula(f.str[1]), ~ . - 1)), collapse = ""),
+    #                  if (is.na(f.str[2])) NULL else f.str[2]), collapse = " | ")
+
+    f.str <- paste(c(paste(f.str[1], "- 1"),
+                   if (is.na(f.str[2])) NULL else f.str[2]), collapse = " | ")
     formula <- formula(f.str)
     analyzer <- .get.params(formula, data, na.action, na.as.level, FALSE)
 
@@ -154,7 +163,7 @@ predict.dt.madlib <- function(object, newdata, type = c("response", "prob"), ...
     type <- match.arg(type)
     if (missing(newdata)) newdata <- object$data
     if (is(newdata, "db.Rquery")) {
-        newdata <- as.db.data.frame(newdata)
+        newdata <- as.db.data.frame(newdata, verbose = FALSE)
         is.temp <- TRUE
     } else {
         is.temp <- FALSE

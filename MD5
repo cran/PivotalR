@@ -1,4 +1,4 @@
-2eab25d2fc55a9b74e42bda923c29f88 *DESCRIPTION
+5435fa5000bf1d458f956376ee4a30f5 *DESCRIPTION
 18599e944d9d53eda7fed747563b4f40 *NAMESPACE
 4bae96f1e858b21f31bf5bd64022350b *NEWS
 d4b2be685f8f26cf82fff4e85437d4a8 *R/PivotalR.R
@@ -17,9 +17,9 @@ c43468b5a17148ef3351f641932181fd *R/generic.cv.R
 64a64b585714e72e0dfcbd595021b812 *R/ifelse.R
 931355ae185c162082b3c361538dbcce *R/madlib-arima.R
 bd2bd4755a78a9ead894cfde266bdc08 *R/madlib-elnet.R
-79bb1c4d906fc9ea294739146c14b769 *R/madlib-glm.R
-3c2a8abb5af379c8268f33e503d7fb1c *R/madlib-lm.R
-9f4f99f64ca2d60b22c8cc34e9d4abc6 *R/madlib-rpart.R
+a75b36f7544f3da4354bfa1e49e183ff *R/madlib-glm.R
+e299a1994a0defca33276d1a6154004f *R/madlib-lm.R
+c8110285ec319b150c4e6b5580c029a5 *R/madlib-rpart.R
 a0e242745edfadcceb1831acbf31daa8 *R/madlib-summary.R
 0ffc4a7bcadf729865a247a12b209f06 *R/margins.R
 0836ff2594ecb16c2b86bc276a62e1e0 *R/method-aggregates_.R
@@ -65,7 +65,7 @@ be7a75472ddbb46ae3e367528d725725 *build/vignette.rds
 f8bbe6e8cea9647c46564b8470909b81 *data/null.data.RData
 2b76d5025b61f0347c1b34fc63e9ba81 *inst/dbi/DBI.tar.gz
 d4d3b8bf60a1e435ae21e41540070b2d *inst/doc/pivotalr.Rnw
-feeb5189604ef24cbc17ef7702e1c156 *inst/doc/pivotalr.pdf
+1e15f92a1993fe9e5e1280629673f6b8 *inst/doc/pivotalr.pdf
 9fdb1a41a592bc430205b909edfd63ab *inst/gui/server.R
 77e068b63c35e1905097c623c24bbdce *inst/gui/ui.R
 80b502f9e3827537558fc2321846a9c0 *inst/sql/crossprod_double.sql_in
@@ -121,12 +121,12 @@ a5c990c6fe413efcb52c06a607176680 *man/is.db.data.frame.Rd
 3b30df24044c9013884765b185aad24b *man/is.factor-methods.Rd
 1bb60c27517eaf564c3da74710b02923 *man/is.na-methods.Rd
 6e150899e1e6e942834b8b79fed03cfc *man/key.Rd
-516272249f6b2e41374b2fa10bf7621a *man/logical-methods.Rd
+5c8c915facdbae7460139fce8e9b429d *man/logical-methods.Rd
 f826b050325d3fe58c08c1ade75019b3 *man/madlib.arima.Rd
 3f1f850028470f417348416d71f3b777 *man/madlib.elnet.Rd
 90a6b0be5d32ab4d273011b2d7c73c31 *man/madlib.glm.Rd
 c28fec4482167217736d514d45bd0f3e *man/madlib.lm.Rd
-137b24ba014f9c98e846f4497fa572f0 *man/madlib.rpart.Rd
+5e56948ff3471bab404cc196fd33d8b9 *man/madlib.rpart.Rd
 bbd361b776e2637365b5e20975ece612 *man/madlib.summary.Rd
 5ced5fb63ef9b239ae1e75dbaad8a8af *man/margins.Rd
 d182dfc4ee5d620cc9775b1ee54eafcc *man/merge-methods.Rd
