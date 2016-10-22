@@ -158,10 +158,13 @@ madlib.glm <- function (formula, data,
     ## if (!is.null(tbl.output)) .db.removeTable(tbl.output, conn.id)
     if (is.tbl.source.temp) delete(tbl.source, conn.id)
 
-    if (db$db.str == "HAWQ" && grepl("^1\\.1", db$version.str))
+    if (db$db.str == "HAWQ" && grepl("^1\\.1", db$version.str)){
         model <- NULL
-    else
+    } else{
         model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
+        model.summary <- db.data.frame(paste(tbl.output, "_summary", sep = ""),
+                                       conn.id = conn.id, verbose = FALSE)
+    }
 
     .restore.warnings(warnings)
 
@@ -178,6 +181,7 @@ madlib.glm <- function (formula, data,
     r.ind.str <- params$ind.str
     r.grp.cols <- gsub("\"", "", arraydb.to.arrayr(params$grp.str,
                                                      "character", n))
+    r.nobs <- res$num_rows_processed
     r.grp.expr <- params$grp.expr
     r.has.intercept <- params$has.intercept # do we have an intercept
     ## r.ind.vars <- gsub("\"", "", params$ind.vars)
@@ -220,6 +224,7 @@ madlib.glm <- function (formula, data,
         rst[[i]]$dummy <- r.dummy
         rst[[i]]$dummy.expr <- r.dummy.expr
         rst[[i]]$model <- model
+        rst[[i]]$model.summary <- model.summary
         rst[[i]]$terms <- params$terms
         rst[[i]]$factor.ref <- data@.factor.ref
         rst[[i]]$na.action <- na.action
@@ -246,7 +251,7 @@ madlib.glm <- function (formula, data,
             rst[[i]]$data <- origin.data
 
         rst[[i]]$origin.data <- origin.data
-        rst[[i]]$nobs <- nrow(rst[[i]]$data)
+        rst[[i]]$nobs <- r.nobs[i]
 
         class(rst[[i]]) <- "logregr.madlib"
     }
@@ -414,13 +419,13 @@ show.logregr.madlib <- function (object)
     }
     origin.data <- data
     conn.id <- conn.id(data)
-
     ## Only MADlib 1.7 and newer are supported
     .check.madlib.version(data, allowed.version = 1.6)
 
     warnings <- .suppress.warnings(conn.id) # turn off warning messages
 
     analyzer <- .get.params(formula, data, na.action, na.as.level)
+
     data <- analyzer$data
     params <- analyzer$params
     is.tbl.source.temp <- analyzer$is.tbl.source.temp
@@ -448,6 +453,8 @@ show.logregr.madlib <- function (object)
     if (is.tbl.source.temp) delete(tbl.source, conn.id)
 
     model <- db.data.frame(tbl.output, conn.id = conn.id, verbose = FALSE)
+    model.summary <- db.data.frame(paste(tbl.output, "_summary", sep = ""),
+                           conn.id = conn.id, verbose = FALSE)
 
     .restore.warnings(warnings) # turn on warning messages
 
@@ -474,6 +481,7 @@ show.logregr.madlib <- function (object)
     r.dummy <- data@.dummy
     r.dummy.expr <- data@.dummy.expr
     term.names <- .term.names(r.has.intercept, r.ind.vars, r.col.name, r.appear)
+    r.nobs <- res$num_rows_processed
 
     for (i in seq_len(n.grps)) {
         rst[[i]] <- list()
@@ -507,6 +515,7 @@ show.logregr.madlib <- function (object)
         rst[[i]]$dummy <- r.dummy
         rst[[i]]$dummy.expr <- r.dummy.expr
         rst[[i]]$model <- model
+        rst[[i]]$model.summary <- model.summary
         rst[[i]]$terms <- params$terms
         rst[[i]]$factor.ref <- data@.factor.ref
         rst[[i]]$na.action <- na.action
@@ -535,13 +544,12 @@ show.logregr.madlib <- function (object)
             rst[[i]]$data <- origin.data
 
         rst[[i]]$origin.data <- origin.data
-        rst[[i]]$nobs <- nrow(rst[[i]]$data)
+        rst[[i]]$nobs <- r.nobs[i]
 
         class(rst[[i]]) <- "glm.madlib"
     }
 
     class(rst) <- 'glm.madlib.grps'
-
     if (n.grps == 1) return (rst[[1]])
     else return (rst)
 }

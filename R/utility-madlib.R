@@ -25,7 +25,6 @@
 {
     n <- ncol(data)
     params <- .analyze.formula(formula, data)
-
     if (!is.null(na.action)) {
         params$data <- na.action(params$data, vars =
                                  with(params, c(origin.dep, grp.vars,
@@ -40,10 +39,10 @@
     if (is(params$data, "db.Rquery")) {
         if (create.dummy) {
             tbl.source <- .unique.string()
-            is.tbl.source.temp <- TRUE
+            is.tbl.source.temp <- FALSE
             data <- as.db.data.frame(x = params$data,
                                      table.name = tbl.source,
-                                     is.temp = FALSE, verbose = FALSE,
+                                     is.temp = TRUE, verbose = FALSE,
                                      distributed.by = params$data@.dist.by,
                                      factor.full = params$factor.full,
                                      na.as.level = na.as.level)
@@ -52,7 +51,7 @@
                 tbl.source <- .unique.string()
                 data <- as.db.data.frame(x = params$data,
                                          table.name = tbl.source,
-                                         is.temp = FALSE, verbose = FALSE,
+                                         is.temp = TRUE, verbose = FALSE,
                                          distributed.by = params$data@.dist.by,
                                          factor.full = params$factor.full,
                                          na.as.level = na.as.level, pivot = FALSE)
@@ -64,7 +63,7 @@
         is.tbl.source.temp <- TRUE
         data <- as.db.data.frame(x = params$data,
                                  table.name = tbl.source,
-                                 is.temp = FALSE, verbose = FALSE)
+                                 is.temp = TRUE, verbose = FALSE)
     }
 
     is.factor <- data@.is.factor
@@ -176,15 +175,14 @@ groups.logregr.madlib.grps <- function (x)
 ## delete all __madlib_temp_* tables from a database
 clean.madlib.temp <- function(conn.id = 1)
 {
-    for (tbl in db.objects(
-        .unique.pattern(),
-        conn.id=conn.id))
+    for (tbl in db.objects(.unique.pattern(), conn.id=conn.id))
         delete(tbl, conn.id=conn.id, cascade = TRUE)
+    
 }
 
 ## ----------------------------------------------------------------------
 
-## Compute the first-derivative of any functino analytically
+## Compute the first-derivative of any function analytically
 ## And return the result as a string
 ## Will be used in computing margins
 .parse.deriv <- function (expr.str, var)
@@ -238,4 +236,30 @@ clean.madlib.temp <- function(conn.id = 1)
         res <- env[[k]]
     }
     gsub("\\s+", " ", paste(deparse(res), collapse = " "))
+}
+
+## ----------------------------------------------------------------------
+
+## Create a view that collates the specified columns into an array
+.collate.columns <- function (data, columns, arr.name = "__madlib_coll__"){
+
+    conn.id <- conn.id(data)
+    warnings <- .suppress.warnings(conn.id)
+    if (! is(data, "db.obj"))
+        stop("collate.columns can only be used on a db.obj object, and ",
+             deparse(substitute(data)), " is not!")
+
+    view.name <- .unique.string()
+    data.name <- content(data)
+
+
+    sql <- paste( "CREATE VIEW ", view.name, " AS ( SELECT *, ARRAY[",
+        paste(columns, collapse=', '),
+        "] as ",arr.name," FROM ", data.name, ")")
+
+    db.q(sql, conn.id = conn.id, verbose = FALSE)
+
+    ret <- db.data.frame(view.name, conn.id=conn.id)
+    .restore.warnings(warnings)
+    ret
 }

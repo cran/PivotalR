@@ -7,8 +7,9 @@
 .db.connect.rpostgresql <- function(host, user, dbname, password,
                                     port, madlib)
 {
-    if (is.null(.localVars$drv$rpostgresql))
-        .localVars$drv$rpostgresql <- DBI::dbDriver("PostgreSQL")
+    if (is.null(.localVars$drv$rpostgresql)){
+      .localVars$drv$rpostgresql <- DBI::dbDriver("PostgreSQL", max.con=50)
+    }
 
     n.db <- length(.localVars$db)
     func <- getMethod("dbConnect", signature="PostgreSQLDriver",
