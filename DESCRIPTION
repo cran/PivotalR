@@ -2,8 +2,8 @@ Package: PivotalR
 Type: Package
 Title: A Fast, Easy-to-Use Tool for Manipulating Tables in Databases
         and a Wrapper of MADlib
-Version: 0.1.18.2
-Date: 2016-10-21
+Version: 0.1.18.3
+Date: 2017-2-7
 Author: Predictive Analytics Team at Pivotal Inc.
     <user@madlb.incubator.apache.org>, with contributions from Data Science Team
     at Pivotal Inc.
@@ -26,6 +26,6 @@ License: GPL (>= 2)
 LazyLoad: yes
 LazyData: yes
 NeedsCompilation: yes
-Packaged: 2016-10-21 22:51:24 UTC; riyer
+Packaged: 2017-02-07 23:28:54 UTC; riyer
 Repository: CRAN
-Date/Publication: 2016-10-22 12:17:19
+Date/Publication: 2017-02-13 23:34:46
