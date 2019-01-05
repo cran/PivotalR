@@ -1,5 +1,5 @@
-f50a1761ca4e0c558f11b262d5876b32 *DESCRIPTION
-46632549730585c7ae4df17b42977b8b *NAMESPACE
+43d43ff27c101f04bc06b23aaf0f4dc2 *DESCRIPTION
+2d90e138e95a53b45d918239dc9a975b *NAMESPACE
 4bae96f1e858b21f31bf5bd64022350b *NEWS
 bdac84459f267fe011f9d201cde0e60d *R/PivotalR.R
 1ae3b657fa760957e78bd44100f372f8 *R/aic_lm.R
@@ -63,13 +63,13 @@ db7c4ae823a94e215abf2ddecf9f9d7b *R/utility-generic.R
 edf8562cb5adc700084498d559b43911 *R/utility-madlib.R
 a328fe1b60867b5ca430782f05a4a334 *R/vcov.R
 ab92f2cc0f4cf3c7c9933f5823ade1fe *README.md
-93c2e8889ee16684ce04fe69f8f253c2 *build/vignette.rds
+81e1ffa847cbf8dcb02be0083dbc81fd *build/vignette.rds
 4eda50c2678ed7e0182ff8b7becd930f *cleanup
-31b0edf42dbd3f661a0a0db63e72d44b *data/abalone.RData
-f2816c4f347f71890749af7661840897 *data/null.data.RData
+e6057a086a25f8174d8f5935e829d87f *data/abalone.RData
+100f19e932d3ac353e13b18553a11fa7 *data/null.data.RData
 2b76d5025b61f0347c1b34fc63e9ba81 *inst/dbi/DBI.tar.gz
 d4d3b8bf60a1e435ae21e41540070b2d *inst/doc/pivotalr.Rnw
-e66bf4a262f8a103c677b53ddc668649 *inst/doc/pivotalr.pdf
+25c088d8be43d6e577d14668c6585e64 *inst/doc/pivotalr.pdf
 9fdb1a41a592bc430205b909edfd63ab *inst/gui/server.R
 77e068b63c35e1905097c623c24bbdce *inst/gui/ui.R
 80b502f9e3827537558fc2321846a9c0 *inst/sql/crossprod_double.sql_in

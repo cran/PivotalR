@@ -164,6 +164,7 @@ S3method(as.data.frame, db.Rquery)
 
 S3method(as.environment, db.obj)
 S3method(with, db.obj)
+S3method("[<-", db.obj)
 
 S3method(coef, logregr.madlib)
 S3method(coef, logregr.madlib.grps)
