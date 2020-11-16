@@ -78,12 +78,12 @@ control, na.as.level = FALSE, verbose = FALSE, ...) }
   dt.madlib.grp in the case of grouping.
 }
 \references{
-[1] Documentation of decision tree in MADlib 1.6, \url{http://doc.madlib.net/latest/}
+[1] Documentation of decision tree in MADlib 1.6, \url{https://madlib.apache.org/docs/latest/}
 }
 \author{
   Author: Predictive Analytics Team at Pivotal Inc.
 
-  Maintainer: Frank McQuillan, Pivotal Inc. \email{fmcquillan@pivotal.io}  
+  Maintainer: Frank McQuillan, Pivotal Inc. \email{fmcquillan@pivotal.io}
 }
 
 \seealso{
@@ -127,5 +127,4 @@ db.disconnect(cid)
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\keyword{ ~kwd1 }
-\keyword{ ~kwd2 }% __ONLY ONE__ keyword per line
+\keyword{'tree'}

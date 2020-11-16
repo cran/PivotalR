@@ -49,7 +49,7 @@
   The coordinates of the nodes are returned as a list, with components x and y.
 }
 \references{
-[1] Documentation of decision tree in MADlib 1.6, \url{http://doc.madlib.net/latest/}
+[1] Documentation of decision tree in MADlib 1.6, \url{https://madlib.apache.org/docs/latest/}
 }
 
 \author{
@@ -94,5 +94,4 @@ db.disconnect(cid)
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\keyword{ ~kwd1 }
-\keyword{ ~kwd2 }% __ONLY ONE__ keyword per line
+\keyword{'tree'}
